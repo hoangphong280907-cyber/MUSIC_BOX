@@ -1,0 +1,4118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Music Box Karaoke 3D Online - Hát Live & Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      background: radial-gradient(circle at center, #14182b 0%, #07080f 100%);
+      color: #f8fafc; overflow: hidden; height: 100dvh; width: 100vw; user-select: none;
+      overscroll-behavior: none;
+    }
+
+    #css3d-container, #webgl-container { position: fixed; inset: 0; width: 100%; height: 100%; }
+    #css3d-container { z-index: 1; pointer-events: auto; }
+    #webgl-container { z-index: 2; cursor: grab; background: transparent; pointer-events: auto; touch-action: none; }
+    #webgl-container:active { cursor: grabbing; }
+    #webgl-container.tv-passthrough { pointer-events: none; }
+
+    .world-pin {
+      position: fixed; z-index: 8; transform: translate(-50%, -100%);
+      background: rgba(15, 23, 42, 0.92); color: #f8fafc;
+      border: 1px solid rgba(244, 114, 182, 0.75); border-radius: 999px;
+      padding: 5px 11px; font-size: 0.74rem; font-weight: 700;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45); pointer-events: auto; cursor: pointer;
+      white-space: nowrap; transition: transform 0.15s, background 0.15s;
+    }
+    .world-pin:hover { transform: translate(-50%, -105%) scale(1.05); background: #ec4899; }
+
+    /* ================= LOBBY CHỌN PHÒNG ================= */
+    #lobby-overlay {
+      position: fixed; inset: 0; z-index: 40;
+      background: radial-gradient(circle at top, rgba(42, 18, 68, 0.96), rgba(8, 9, 16, 0.99));
+      backdrop-filter: blur(14px);
+      display: flex; align-items: center; justify-content: center; padding: 14px; overflow-y: auto;
+    }
+    #lobby-overlay.hidden { display: none; }
+    .lobby-card {
+      width: 100%; max-width: 880px; background: rgba(17, 20, 34, 0.94);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 22px; padding: 20px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.75); max-height: 95dvh; overflow-y: auto;
+    }
+    .lobby-header { text-align: center; margin-bottom: 14px; }
+    .lobby-header h1 { font-size: clamp(1.25rem, 3.2vw, 1.95rem); font-weight: 800; }
+    .lobby-header p { color: #94a3b8; font-size: 0.84rem; margin-top: 4px; }
+
+    .net-banner {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-size: 0.78rem; padding: 6px 12px; border-radius: 999px; margin: 0 auto 14px;
+      width: fit-content; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .name-row {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;
+      margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    input[type="text"] {
+      background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.22);
+      color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 0.92rem; outline: none;
+    }
+    input[type="text"]:focus { border-color: #ec4899; }
+
+    .lobby-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+    .tab-btn {
+      padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.05); color: #cbd5e1; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+    }
+    .tab-btn.active { background: #ec4899; color: #fff; border-color: #f472b6; }
+
+    .room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+    .room-option {
+      background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 14px; cursor: pointer; transition: 0.2s; position: relative;
+    }
+    .room-option:hover, .room-option.recommended {
+      border-color: #ec4899; background: rgba(236, 72, 153, 0.14); transform: translateY(-2px);
+    }
+    .badge-rec {
+      position: absolute; top: 12px; right: 12px; background: #ec4899; color: #fff;
+      font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    }
+    .room-option h3 { font-size: 1.05rem; margin-bottom: 4px; }
+    .room-option .meta { font-size: 0.8rem; color: #e2e8f0; margin-bottom: 5px; }
+    .room-option .desc { font-size: 0.76rem; color: #94a3b8; line-height: 1.4; }
+
+    /* ================= HUD GỌN GÀNG CHO MOBILE & LAPTOP ================= */
+    .glass {
+      background: rgba(13, 16, 28, 0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+    }
+    .btn {
+      background: rgba(255,255,255,0.08); color: #f8fafc; border: 1px solid rgba(255,255,255,0.15);
+      padding: 7px 10px; border-radius: 9px; font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; transition: 0.16s; display: inline-flex; align-items: center; gap: 4px;
+      white-space: nowrap;
+    }
+    .btn:hover { background: rgba(255,255,255,0.18); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn.primary { background: #ec4899; border-color: #f472b6; color: #fff; }
+    .btn.primary:hover { background: #db2777; }
+    .btn.blue { background: #2563eb; border-color: #60a5fa; color: #fff; }
+    .btn.green { background: #16a34a; border-color: #4ade80; color: #fff; }
+    .btn.red { background: #dc2626; border-color: #f87171; color: #fff; }
+    .btn.amber { background: #d97706; border-color: #fbbf24; color: #fff; }
+    .btn.anim-active { background: #f59e0b; border-color: #fde047; color: #0f172a; }
+
+    .hud-top {
+      position: fixed; top: 8px; left: 8px; right: 8px; z-index: 15;
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px;
+      pointer-events: none;
+    }
+    .hud-group { pointer-events: auto; display: flex; align-items: center; gap: 6px; padding: 6px 9px; flex-wrap: wrap; }
+    .code-pill {
+      background: rgba(236, 72, 153, 0.22); border: 1px solid #ec4899; color: #fbcfe8;
+      padding: 4px 9px; border-radius: 8px; font-weight: 800; font-size: 0.8rem; cursor: pointer;
+    }
+    .online-dot {
+      display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem;
+      padding: 3px 8px; border-radius: 999px; background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255,255,255,0.12); color: #cbd5e1;
+    }
+
+    .hud-bottom {
+      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 15;
+      padding: 7px 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+      justify-content: center; width: max-content; max-width: 96vw;
+    }
+
+    /* ================= NÚT ĐIỀU KHIỂN MIC & CỬA SỔ CHAT NHANH ================= */
+    .ctrl-btn {
+      padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18);
+      background: #181824; color: #fff; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: 0.18s;
+    }
+    .ctrl-btn:hover { background: #262638; }
+    .ctrl-btn.active-mic {
+      background: #e11d48; border-color: #fb7185;
+      box-shadow: 0 0 14px rgba(225, 29, 72, 0.55);
+    }
+    .badge {
+      background: #ef4444; color: #fff; font-size: 11px; font-weight: 800;
+      padding: 1px 6px; border-radius: 999px;
+    }
+    .hidden { display: none !important; }
+    #mic-meter { width: 56px; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.16); overflow: hidden; display: inline-block; flex: none; }
+    #mic-meter i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); transition: width 0.06s linear; }
+    #btn-tv-zoom-exit { position: fixed; top: 70px; right: 10px; z-index: 30; }
+
+    .chat-box {
+      position: fixed; bottom: 72px; right: 14px;
+      width: 320px; max-width: calc(100vw - 28px); height: 360px; max-height: 58dvh;
+      background: rgba(18, 20, 30, 0.96); backdrop-filter: blur(12px);
+      border: 1px solid rgba(244, 114, 182, 0.35); border-radius: 14px;
+      display: flex; flex-direction: column; overflow: hidden; z-index: 28;
+      color: #f1f5f9; box-shadow: 0 18px 45px rgba(0,0,0,0.75);
+      user-select: text;
+    }
+    .chat-header {
+      padding: 10px 14px; background: #10121b; border-bottom: 1px solid #2e2e3a;
+      display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.86rem;
+    }
+    .chat-header button { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 16px; padding: 2px 6px; }
+    .chat-header button:hover { color: #fff; }
+    .chat-messages {
+      flex: 1; padding: 10px 12px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 8px; font-size: 13.5px;
+    }
+    .msg-item { background: #242636; padding: 6px 10px; border-radius: 9px; word-break: break-word; }
+    .msg-item.mine { background: rgba(236, 72, 153, 0.22); border: 1px solid rgba(244, 114, 182, 0.35); align-self: flex-end; max-width: 88%; }
+    .msg-item.system { background: rgba(56, 189, 248, 0.12); color: #bae6fd; font-size: 12px; text-align: center; }
+    .msg-sender { font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 2px; }
+    .msg-item.mine .msg-sender { color: #f9a8d4; }
+    .chat-input-row {
+      display: flex; border-top: 1px solid #2e2e3a; padding: 8px; gap: 6px; background: #10121b;
+    }
+    .chat-input-row input {
+      flex: 1; background: #1e202e; border: 1px solid #334155; border-radius: 8px;
+      padding: 8px 10px; color: #fff; outline: none; font-size: 0.85rem; min-width: 0;
+    }
+    .chat-input-row input:focus { border-color: #ec4899; }
+    .chat-input-row button {
+      background: #2563eb; color: #fff; border: none; border-radius: 8px;
+      padding: 0 14px; font-weight: 700; cursor: pointer; font-size: 0.82rem;
+    }
+    .chat-input-row button:hover { background: #1d4ed8; }
+
+    /* ================= MODAL TÌM BÀI, CHỌN BÀI & HÀNG CHỜ (QUEUE) ================= */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 35; background: rgba(4, 6, 14, 0.78);
+      backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 10px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .tablet-modal {
+      width: 100%; max-width: 570px; padding: 16px; border: 1px solid rgba(244, 114, 182, 0.45);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.85); max-height: 93dvh; display: flex; flex-direction: column;
+    }
+    .tablet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .tablet-header h3 { font-size: 1.02rem; display: flex; align-items: center; gap: 8px; }
+
+    .modal-subtabs {
+      display: flex; gap: 6px; margin-bottom: 12px; padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .subtab-btn {
+      flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05); color: #cbd5e1; font-weight: 700; font-size: 0.82rem;
+      cursor: pointer; transition: 0.15s;
+    }
+    .subtab-btn.active { background: #ec4899; border-color: #f472b6; color: #fff; }
+
+    .modal-scroll-body { overflow-y: auto; flex: 1; padding-right: 2px; }
+
+    .search-box-wrap {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(244, 114, 182, 0.35);
+      border-radius: 12px; padding: 10px; margin-bottom: 12px;
+    }
+    .search-bar-row { display: flex; gap: 6px; align-items: center; }
+    .search-options-row {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 8px; margin-top: 8px; font-size: 0.74rem; color: #cbd5e1;
+    }
+    .karaoke-toggle-label {
+      display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+      background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(244, 114, 182, 0.4);
+      padding: 3px 9px; border-radius: 999px; color: #fbcfe8; font-weight: 600;
+    }
+    .search-results-list {
+      margin-top: 10px; display: flex; flex-direction: column; gap: 7px;
+      max-height: 235px; overflow-y: auto; padding-right: 2px;
+    }
+    .search-result-item {
+      display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+      background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; transition: 0.15s;
+    }
+    .search-result-item:hover { border-color: rgba(244, 114, 182, 0.55); background: rgba(30, 41, 59, 0.85); }
+    .sr-thumb-wrap { position: relative; width: 78px; height: 46px; flex-shrink: 0; border-radius: 6px; overflow: hidden; background: #000; }
+    .sr-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .sr-dur {
+      position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.85);
+      color: #f8fafc; font-size: 0.62rem; font-weight: 700; padding: 1px 4px; border-radius: 4px;
+    }
+    .sr-meta { flex: 1; min-width: 0; }
+    .sr-title {
+      font-size: 0.8rem; font-weight: 700; color: #f8fafc; line-height: 1.28;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .sr-author { font-size: 0.7rem; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sr-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+    .sr-btn {
+      padding: 4px 8px; border-radius: 7px; font-size: 0.7rem; font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.16); cursor: pointer; white-space: nowrap;
+    }
+    .sr-btn.add { background: #ec4899; border-color: #f472b6; color: #fff; }
+    .sr-btn.add:hover { background: #db2777; }
+    .sr-btn.play { background: rgba(37, 99, 235, 0.35); border-color: #60a5fa; color: #dbeafe; }
+    .sr-btn.play:hover { background: #2563eb; color: #fff; }
+
+    .divider-label {
+      display: flex; align-items: center; gap: 8px; margin: 10px 0 8px;
+      font-size: 0.73rem; color: #94a3b8; font-weight: 600;
+    }
+    .divider-label::before, .divider-label::after {
+      content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1);
+    }
+
+    .quick-songs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .chip-song {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16);
+      color: #e2e8f0; border-radius: 999px; padding: 4px 9px; font-size: 0.72rem;
+      cursor: pointer; transition: 0.15s;
+    }
+    .chip-song:hover { background: rgba(236, 72, 153, 0.28); border-color: #f472b6; color: #fff; }
+
+    .preview-card {
+      margin-top: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px; overflow: hidden; display: none;
+    }
+    .preview-card.visible { display: block; }
+    .preview-thumb-wrap { position: relative; width: 100%; aspect-ratio: 16/9; max-height: 160px; background: #000; }
+    .preview-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .preview-badge {
+      position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.82);
+      color: #4ade80; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+    }
+    .preview-info { padding: 9px 11px; }
+    .preview-title { font-size: 0.86rem; font-weight: 700; color: #f8fafc; line-height: 1.32; }
+    .preview-author { font-size: 0.74rem; color: #94a3b8; margin-top: 2px; }
+
+    .now-playing-box {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(236, 72, 153, 0.18));
+      border: 1px solid rgba(96, 165, 250, 0.45); border-radius: 12px; padding: 10px 12px;
+      margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .queue-list { display: flex; flex-direction: column; gap: 8px; }
+    .queue-item {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.11);
+      border-radius: 11px; padding: 8px 10px; display: flex; align-items: center; gap: 9px;
+    }
+    .queue-rank {
+      width: 24px; height: 24px; border-radius: 7px; background: rgba(236, 72, 153, 0.25);
+      border: 1px solid rgba(244, 114, 182, 0.5); color: #fbcfe8; font-weight: 800;
+      font-size: 0.76rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .queue-thumb {
+      width: 64px; height: 38px; border-radius: 6px; object-fit: cover; background: #000; flex-shrink: 0;
+    }
+    .queue-meta { flex: 1; min-width: 0; }
+    .queue-title {
+      font-size: 0.82rem; font-weight: 700; color: #f8fafc;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .queue-by { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; }
+    .queue-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .q-icon-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc;
+      border-radius: 7px; padding: 5px 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer;
+    }
+    .q-icon-btn:hover { background: rgba(255,255,255,0.2); }
+    .q-icon-btn.del:hover { background: #dc2626; border-color: #f87171; }
+    .q-icon-btn.prio:hover { background: #d97706; border-color: #fbbf24; }
+
+    .toast-banner {
+      position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 50;
+      background: rgba(15, 23, 42, 0.94); border: 1px solid #4ade80; color: #dcfce7;
+      padding: 7px 14px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.55); pointer-events: none;
+      opacity: 0; transition: opacity 0.2s; max-width: 92vw; text-align: center;
+    }
+    .toast-banner.show { opacity: 1; }
+
+    /* ================= POPOVER ĐIỀU KHIỂN TIVI 3D ================= */
+    #tv-remote-popover {
+      position: fixed; z-index: 30; display: none; flex-direction: column; gap: 10px;
+      padding: 14px 16px; width: min(345px, 92vw); border: 1px solid #38bdf8;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.75); left: 50%; top: 50%; transform: translate(-50%, -50%);
+    }
+    #tv-remote-popover.open { display: flex; }
+    .tv-remote-row { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; }
+
+    /* ================= POPOVER ĐỔI CHỖ NGỒI ================= */
+    #seat-swap-modal {
+      position: fixed; bottom: 82px; left: 50%; transform: translateX(-50%); z-index: 32;
+      display: none; align-items: center; gap: 8px; padding: 10px 14px;
+      border: 1px solid #facc15; box-shadow: 0 14px 35px rgba(0,0,0,0.7);
+      width: max-content; max-width: 94vw;
+    }
+    #seat-swap-modal.open { display: flex; }
+
+    @media (max-width: 640px) {
+      .btn { padding: 6px 8px; font-size: 0.72rem; }
+      .ctrl-btn { padding: 6px 10px; font-size: 0.72rem; }
+      .hud-group { padding: 5px 7px; }
+      .chat-box { bottom: 86px; right: 10px; }
+    }
+  </style>
+
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <div class="toast-banner" id="toast-banner">✓ Sẵn sàng</div>
+
+  <!-- Vùng chứa các thẻ audio phát tiếng từ người cầm mic -->
+  <div id="remote-audios"></div>
+
+  <!-- ================= LOBBY CHỌN HẠNG PHÒNG ================= -->
+  <div id="lobby-overlay">
+    <div class="lobby-card">
+      <div class="lobby-header">
+        <h1>🎤 MUSIC BOX KARAOKE 3D ONLINE</h1>
+        <p>Hát Live WebRTC (Tối Đa 2 Mic) • Khán Giả Nghe & Chat Nhanh • Đồng Bộ Giây Phát Realtime</p>
+      </div>
+
+      <div class="net-banner" id="lobby-net-status">🟡 Đang kết nối máy chủ đồng bộ Online...</div>
+
+      <div class="name-row">
+        <label style="font-size:0.85rem; color:#cbd5e1;">Tên nhân vật:</label>
+        <input type="text" id="player-name-input" maxlength="16" placeholder="Nhập tên..." />
+      </div>
+
+      <div class="lobby-tabs">
+        <button class="tab-btn active" id="tab-create">➕ Tạo Phòng Mới</button>
+        <button class="tab-btn" id="tab-join">🔑 Nhập Mã Phòng 4 Số</button>
+      </div>
+
+      <div id="panel-create">
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:14px;">
+          <span style="font-size:0.84rem; color:#cbd5e1;">Số người tham gia:</span>
+          <input type="range" id="friend-slider" min="1" max="10" value="3" style="accent-color:#ec4899; width:130px;" />
+          <strong id="friend-count-label" style="color:#f472b6;">3 người</strong>
+        </div>
+
+        <div class="room-grid">
+          <div class="room-option recommended" data-room="small" id="card-small">
+            <span class="badge-rec">Đề xuất</span>
+            <h3>🔴 Small Box</h3>
+            <div class="meta"><strong>4m × 4m</strong> • Tối đa <strong>3 người</strong></div>
+            <div class="desc">Sofa đôi + đôn vuông nỉ xanh ngọc chân gỗ sồi, kệ Tivi TADA 3 ngăn, cặp loa MK Acoustic.</div>
+          </div>
+
+          <div class="room-option" data-room="medium" id="card-medium">
+            <span class="badge-rec" style="display:none;">Đề xuất</span>
+            <h3>🌸 Medium Box</h3>
+            <div class="meta"><strong>8m × 8m</strong> • Tối đa <strong>6 người</strong></div>
+            <div class="desc">Cặp sofa văng hiện đại xanh dương đậm chân gỗ sồi, gối cây thông, đèn neon hoa & loa MK.</div>
+          </div>
+
+          <div class="room-option" data-room="rich" id="card-rich">
+            <span class="badge-rec" style="display:none;">Đề xuất</span>
+            <h3>💎 Rich Box</h3>
+            <div class="meta"><strong>12m × 12m</strong> • Tối đa <strong>10 người</strong></div>
+            <div class="desc">Sofa góc chữ L bọc nỉ xanh bạc hà tựa đầu phân tầng gật gù, gối trang trí & chăn len.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-join" style="display:none; flex-direction:column; align-items:center; gap:12px; padding:16px;">
+        <div style="font-size:0.86rem; color:#cbd5e1; text-align:center;">
+          Nhập mã phòng 4 chữ số hiển thị trên thiết bị tạo phòng (Laptop ↔ Mobile):
+        </div>
+        <input type="text" id="join-code-input" inputmode="numeric" maxlength="4" placeholder="1234" style="font-size:1.5rem; font-weight:800; letter-spacing:8px; text-align:center; width:190px;" />
+        <button class="btn primary" id="btn-join-room" style="padding:10px 24px;">Vào Phòng Online</button>
+        <div id="join-status-msg" style="font-size:0.78rem; color:#94a3b8; text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= KHUNG RENDER 3D ================= -->
+  <div id="css3d-container"></div>
+  <div id="webgl-container"></div>
+
+  <button class="world-pin" id="pin-tablet">🔍 Tìm Bài & Hàng Chờ</button>
+  <button class="world-pin" id="pin-tv">📺 Tivi 3D</button>
+  <button class="btn red hidden" id="btn-tv-zoom-exit">✕ Thoát phóng to Tivi</button>
+
+  <!-- ================= HUD TRÊN ================= -->
+  <div class="hud-top">
+    <div class="hud-group glass">
+      <button class="btn" id="btn-leave">🚪 Đổi phòng</button>
+      <span class="code-pill" id="hud-room-code" title="Bấm sao chép mã phòng">MÃ: ----</span>
+      <span class="online-dot" id="hud-net-status">🟡 Online</span>
+      <span style="font-size:0.76rem; color:#cbd5e1;" id="hud-room-info">Small Box • 1/3</span>
+      <span style="font-size:0.74rem; color:#f9a8d4; font-weight:700;" id="hud-mic-count">🎤 Mic: 0/2</span>
+    </div>
+
+    <div class="hud-group glass">
+      <button class="btn green" id="btn-unlock-tv-sound" style="display:none;">🔊 Bật tiếng Tivi</button>
+      <button class="btn green" id="btn-unlock-audio" style="display:none;">🎧 Bật nghe giọng hát</button>
+      <button class="btn" id="btn-reset-cam">🎥 Góc chuẩn</button>
+    </div>
+  </div>
+
+  <!-- ================= HUD DƯỚI (TÍCH HỢP MIC HÁT LIVE & CHAT NHANH) ================= -->
+  <div class="hud-bottom glass">
+    <button class="btn primary" id="btn-open-tablet-hud">🔍 Tìm Bài</button>
+    <button class="btn amber" id="btn-open-queue-hud">📋 Hàng chờ (0)</button>
+    <button class="btn blue" id="btn-open-tv-hud">📺 Tivi</button>
+    <button id="btn-mic" class="ctrl-btn" onclick="toggleMicRole()">🎤 Cầm mic hát</button>
+    <span id="mic-meter" class="hidden" title="Mức âm lượng micro của bạn"><i id="mic-meter-bar"></i></span>
+    <button id="btn-chat" class="ctrl-btn" onclick="toggleChat()">
+      💬 Chat <span id="chat-badge" class="badge hidden">0</span>
+    </button>
+    <span style="opacity:0.25">|</span>
+    <button class="btn anim-btn" data-anim="clap">👏</button>
+    <button class="btn anim-btn" data-anim="cheer">🙌</button>
+    <button class="btn anim-btn" data-anim="dance">💃</button>
+  </div>
+
+  <!-- ================= CỬA SỔ CHAT NHANH ================= -->
+  <div id="quick-chat-box" class="chat-box hidden">
+    <div class="chat-header">
+      <span>💬 Trò chuyện phòng hát</span>
+      <button onclick="toggleChat()" title="Đóng chat">✕</button>
+    </div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <form class="chat-input-row" onsubmit="handleSendChat(event)">
+      <input id="chat-input" type="text" maxlength="240" placeholder="Nhập tin nhắn cho cả phòng..." autocomplete="off" />
+      <button type="submit">Gửi</button>
+    </form>
+  </div>
+
+  <!-- ================= MODAL TÌM BÀI, CHỌN BÀI & DANH SÁCH HÀNG CHỜ ================= -->
+  <div class="modal-backdrop" id="tablet-modal-backdrop">
+    <div class="tablet-modal glass">
+      <div class="tablet-header">
+        <h3>📱 Hệ Thống Tìm Bài & Hàng Chờ</h3>
+        <button class="btn" id="btn-close-tablet">✕</button>
+      </div>
+
+      <div class="modal-subtabs">
+        <button class="subtab-btn active" id="subtab-add">🔍 Tìm & Thêm Bài</button>
+        <button class="subtab-btn" id="subtab-queue">📋 Hàng Chờ (<span id="subtab-queue-count">0</span>)</button>
+      </div>
+
+      <!-- TAB 1: TÌM KIẾM TÊN BÀI HÁT & THÊM BÀI -->
+      <div class="modal-scroll-body" id="panel-song-add">
+        <div class="search-box-wrap">
+          <div style="font-size:0.78rem; font-weight:700; color:#f472b6; margin-bottom:6px;">
+            🔍 Tìm bài hát Karaoke trên YouTube:
+          </div>
+          <div class="search-bar-row">
+            <input type="text" id="yt-search-input" placeholder="Nhập tên bài hát, ca sĩ (vd: Sóng gió, Cắt đôi nỗi sầu...)" style="flex:1; min-width:0;" />
+            <button class="btn primary" id="btn-yt-search">Tìm</button>
+          </div>
+
+          <div class="search-options-row">
+            <label class="karaoke-toggle-label">
+              <input type="checkbox" id="chk-append-karaoke" checked style="accent-color:#ec4899;" />
+              <span>🎤 Tự thêm "Karaoke"</span>
+            </label>
+            <div style="display:flex; gap:5px;">
+              <button class="chip-song" data-search="Nhạc trẻ remix karaoke">🔥 Nhạc Trẻ</button>
+              <button class="chip-song" data-search="Bolero trữ tình karaoke">🎷 Bolero</button>
+              <button class="chip-song" data-search="Ballad buồn karaoke">💔 Ballad</button>
+            </div>
+          </div>
+
+          <div id="yt-search-status" style="font-size:0.74rem; color:#94a3b8; margin-top:7px; display:none;"></div>
+          <div class="search-results-list" id="yt-search-results"></div>
+        </div>
+
+        <div class="divider-label">Hoặc dán link YouTube / chọn nhanh</div>
+
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="yt-url-input" placeholder="Dán link youtube.com/watch?v=... hoặc youtu.be/..." style="flex:1; min-width:0;" />
+          <button class="btn" id="btn-paste-clip">📋 Dán</button>
+        </div>
+
+        <div class="quick-songs">
+          <span style="font-size:0.72rem; color:#94a3b8; align-self:center;">Nhạc chờ nhanh:</span>
+          <button class="chip-song" data-vid="jfKfPfyJRdk">🎵 Lofi Hip Hop</button>
+          <button class="chip-song" data-vid="DWcJFNfaw9c">🌙 Acoustic Chill</button>
+          <button class="chip-song" data-vid="rUxyKA_-grg">🎹 Piano Relaxing</button>
+          <button class="chip-song" data-vid="5qap5aO4i9A">☕ Chill Beats</button>
+        </div>
+
+        <div style="margin-top:9px; display:flex; align-items:center; gap:8px;">
+          <label class="btn" style="cursor:pointer; font-size:0.74rem;">
+            📂 Chọn video MP4 từ máy
+            <input type="file" id="local-video-input" accept="video/*" style="display:none;" />
+          </label>
+          <span style="font-size:0.7rem; color:#94a3b8;">Phát cục bộ trên thiết bị này</span>
+        </div>
+
+        <div class="preview-card" id="yt-preview-card">
+          <div class="preview-thumb-wrap">
+            <img id="yt-preview-thumb" src="" alt="Hình mẫu video YouTube" />
+            <span class="preview-badge">✓ Sẵn sàng thêm bài</span>
+          </div>
+          <div class="preview-info">
+            <div class="preview-title" id="yt-preview-title">Đang lấy thông tin bài hát...</div>
+            <div class="preview-author" id="yt-preview-author">YouTube</div>
+          </div>
+        </div>
+
+        <div id="yt-url-error" style="display:none; color:#f87171; font-size:0.76rem; margin-top:7px;">
+          Link YouTube chưa đúng định dạng. Hãy dán link có dạng <code>youtube.com/watch?v=...</code> hoặc <code>youtu.be/...</code>!
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn" id="btn-cancel-tablet">Đóng</button>
+          <button class="btn blue" id="btn-play-now-direct" disabled>▶ Phát Ngay</button>
+          <button class="btn primary" id="btn-add-to-queue" disabled>➕ Thêm Vào Hàng Chờ</button>
+        </div>
+      </div>
+
+      <!-- TAB 2: DANH SÁCH HÀNG CHỜ (QUEUE) -->
+      <div class="modal-scroll-body" id="panel-song-queue" style="display:none;">
+        <div class="now-playing-box">
+          <div style="min-width:0; flex:1;">
+            <div style="font-size:0.7rem; font-weight:800; color:#60a5fa; text-transform:uppercase;">📺 Đang phát trên Tivi</div>
+            <div style="font-size:0.84rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;" id="queue-now-title">
+              Nhạc Chờ Phòng Hát
+            </div>
+            <div style="font-size:0.72rem; color:#cbd5e1; margin-top:2px;" id="queue-now-by">Người chọn: Hệ thống</div>
+          </div>
+          <button class="btn green" id="btn-queue-skip-next" style="flex-shrink:0;">⏭ Qua bài tiếp</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:0.78rem; font-weight:700; color:#cbd5e1;">Danh sách bài hát kế tiếp:</span>
+          <span style="font-size:0.72rem; color:#94a3b8;">Tự động phát khi hết bài</span>
+        </div>
+
+        <div class="queue-list" id="queue-items-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= POPOVER ĐIỀU KHIỂN TIVI 3D ================= -->
+  <div class="glass" id="tv-remote-popover">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong style="font-size:0.92rem; color:#38bdf8;">📺 Điều Khiển Tivi 3D</strong>
+      <button class="btn" id="btn-close-tv-remote" style="padding:3px 8px;">✕</button>
+    </div>
+
+    <div style="font-size:0.78rem; color:#cbd5e1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="tv-now-title">
+      Đang phát: Nhạc Chờ Phòng Hát
+    </div>
+
+    <div style="font-size:0.73rem; color:#38bdf8;">
+      💡 Đưa chuột hoặc chạm trực tiếp vào màn hình Tivi 3D để bấm Play, Bật loa hoặc Phóng to!
+    </div>
+
+    <div class="tv-remote-row">
+      <button class="btn" id="btn-tv-rewind">⏪ -5s</button>
+      <button class="btn blue" id="btn-tv-playpause" style="min-width:105px; justify-content:center;">⏸ Tạm dừng</button>
+      <button class="btn" id="btn-tv-forward">⏩ +5s</button>
+      <button class="btn green" id="btn-tv-next-song">⏭ Qua bài</button>
+      <button class="btn amber" id="btn-tv-sync-now" title="Khớp lại đúng giây đang phát của phòng">🔄 Đồng bộ giây</button>
+      <button class="btn blue" id="btn-tv-zoom" title="Xem Tivi 2D toàn màn hình, không qua lớp WebGL">📺 Phóng to Tivi</button>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; font-size:0.78rem; color:#94a3b8;">
+      <span>🔊</span>
+      <input type="range" id="tv-volume-slider" min="0" max="100" value="85" style="flex:1; accent-color:#38bdf8;" />
+      <button class="btn green" id="btn-tv-unmute" style="padding:4px 8px; font-size:0.74rem;">Bật tiếng</button>
+    </div>
+  </div>
+
+  <!-- ================= THANH XÁC NHẬN ĐỔI CHỖ NGỒI ================= -->
+  <div class="glass" id="seat-swap-modal">
+    <span id="seat-swap-text" style="font-size:0.82rem; font-weight:600;">Xin đổi vị trí ngồi?</span>
+    <button class="btn green" id="btn-swap-yes">✅ Đồng ý</button>
+    <button class="btn red" id="btn-swap-no">❌ Hủy</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    const WORLD_SCALE = 250;
+    const MAX_MICS_IN_ROOM = 2;
+
+    const ROOM_CONFIGS = {
+      small: {
+        name: 'Small Box', size: 4, height: 2.75, maxPlayers: 3,
+        wallColor: 0xb91c2c, trimColor: 0x7f1d1d, floorColor: 0x27272e,
+        tvSide: 'right', neonType: 'heart',
+        discoColors: [0x22c55e, 0xeab308, 0xef4444]
+      },
+      medium: {
+        name: 'Medium Box', size: 8, height: 3.1, maxPlayers: 6,
+        wallColor: 0xc9256b, trimColor: 0x831843, floorColor: 0x2b2d36,
+        tvSide: 'right', neonType: 'flower',
+        discoColors: [0x22c55e, 0x06b6d4, 0xf472b6]
+      },
+      rich: {
+        name: 'Rich Box', size: 12, height: 3.5, maxPlayers: 10,
+        wallColor: 0xf2d5df, trimColor: 0xd8a7b8, floorColor: 0x889cb0,
+        tvSide: 'left', neonType: 'gender',
+        discoColors: [0x3b82f6, 0xec4899, 0xfacc15, 0x22c55e]
+      }
+    };
+
+    const SHIRT_COLORS = [0xec4899, 0x3b82f6, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x06b6d4, 0xf43f5e, 0x84cc16, 0x6366f1, 0x14b8a6];
+    const HAIR_COLORS = [0x18181b, 0x3f2305, 0x78350f, 0xd97706, 0x4c1d95, 0x1e293b];
+    const SKIN_TONES = [0xffdbac, 0xf1c27d, 0xe0ac69, 0xffe0bd];
+
+    let toastTimer = null;
+    function showToast(text) {
+      const el = document.getElementById('toast-banner');
+      el.textContent = text;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    function formatPlaybackClock(totalSec) {
+      const s = Math.max(0, Math.floor(Number(totalSec) || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${m}:${String(r).padStart(2, '0')}`;
+    }
+
+    /* =========================================================================
+       1. ĐỒNG BỘ ONLINE REALTIME (MQTT + BROADCASTCHANNEL + ĐỒNG BỘ MỐC GIÂY)
+       ========================================================================= */
+    const myId = 'u_' + Math.random().toString(36).slice(2, 9);
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const defaultName = localStorage.getItem('mb_td_name') || ((isMobileDevice ? 'Mobile_' : 'Laptop_') + Math.floor(10 + Math.random() * 89));
+    document.getElementById('player-name-input').value = defaultName;
+
+    const bc = new BroadcastChannel('music_box_online_v15');
+    const TOPIC_PREFIX = 'musicbox3d/karaoke/v3/room';
+    const BROKER_URLS = [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt'
+    ];
+
+    let mqttClient = null;
+    let mqttConnected = false;
+    let currentBrokerIdx = 0;
+    let activeCode = null;
+    let isRoomHost = false;
+    let roomState = null;
+    let pendingSwapTargetId = null;
+    let pendingJoinResolve = null;
+
+    // Neo thời gian tương đối bằng performance.now() để miễn nhiễm lệch đồng hồ hệ thống giữa các máy
+    let localTvAnchorPos = 0;
+    let localTvAnchorPerfMs = performance.now();
+    let needsInitialSeekSync = false;
+    let lastSyncedSnapshotNonce = -1;
+
+    function recordTvTimeAnchor(tv, forceSeekSync = false) {
+      if (!tv) return;
+      localTvAnchorPos = Math.max(0, Number(tv.seekAt || 0));
+      localTvAnchorPerfMs = performance.now();
+      if (forceSeekSync) {
+        needsInitialSeekSync = true;
+      }
+    }
+
+    function getTargetSyncedSecond(tv) {
+      if (!tv) return 0;
+      const baseSec = Math.max(0, Number(tv.seekAt || 0));
+      if (tv.isPlaying === false) return baseSec;
+      const elapsed = Math.max(0, (performance.now() - localTvAnchorPerfMs) / 1000);
+      return Number((localTvAnchorPos + elapsed).toFixed(2));
+    }
+
+    function setNetworkStatusUI(connected, label) {
+      mqttConnected = connected;
+      const lobbyEl = document.getElementById('lobby-net-status');
+      const hudEl = document.getElementById('hud-net-status');
+      if (connected) {
+        lobbyEl.textContent = '🟢 Đã kết nối máy chủ Online (Mobile ↔ Laptop)';
+        lobbyEl.style.borderColor = '#4ade80';
+        lobbyEl.style.color = '#bbf7d0';
+        hudEl.textContent = label || '🟢 Online';
+        hudEl.style.borderColor = '#4ade80';
+        hudEl.style.color = '#bbf7d0';
+      } else {
+        lobbyEl.textContent = label || '🟡 Đang kết nối máy chủ Online...';
+        lobbyEl.style.borderColor = '#facc15';
+        lobbyEl.style.color = '#fef08a';
+        hudEl.textContent = '🟡 Đang nối...';
+        hudEl.style.borderColor = '#facc15';
+        hudEl.style.color = '#fef08a';
+      }
+    }
+
+    function waitForMqttReady(maxWaitMs = 5000) {
+      if (mqttClient && mqttConnected) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        const started = Date.now();
+        const iv = setInterval(() => {
+          if (mqttClient && mqttConnected) {
+            clearInterval(iv);
+            resolve(true);
+          } else if (Date.now() - started >= maxWaitMs) {
+            clearInterval(iv);
+            resolve(false);
+          }
+        }, 100);
+      });
+    }
+
+    function initOnlineBroker() {
+      if (typeof window.mqtt === 'undefined') {
+        setNetworkStatusUI(false, '🔴 Thiếu thư viện mạng (kiểm tra Internet)');
+        return;
+      }
+
+      let failedAttempts = 0;
+
+      function connectToBroker(idx) {
+        currentBrokerIdx = idx % BROKER_URLS.length;
+        const url = BROKER_URLS[currentBrokerIdx];
+
+        if (mqttClient) {
+          try { mqttClient.end(true); } catch {}
+        }
+
+        mqttClient = window.mqtt.connect(url, {
+          clientId: 'mb3d_' + myId + '_' + Math.floor(Math.random() * 99999),
+          clean: true,
+          keepalive: 8,
+          connectTimeout: 5000,
+          reconnectPeriod: 1200
+        });
+
+        mqttClient.on('connect', () => {
+          failedAttempts = 0;
+          setNetworkStatusUI(true, '🟢 Online');
+          if (activeCode) {
+            subscribeRoomTopics(activeCode);
+            if (isRoomHost && roomState) {
+              const snapshot = buildLiveStateSnapshot();
+              publishRetainedState(activeCode, snapshot);
+            } else if (!isRoomHost) {
+              publishRoomEvent(activeCode, { type: 'REQUEST_STATE', requesterId: myId });
+            }
+          }
+        });
+
+        mqttClient.on('offline', () => setNetworkStatusUI(false, '🟡 Mất kết nối tạm thời...'));
+        mqttClient.on('error', () => {
+          failedAttempts++;
+          if (!mqttConnected && failedAttempts >= 2) {
+            failedAttempts = 0;
+            connectToBroker(currentBrokerIdx + 1);
+          }
+        });
+
+        mqttClient.on('message', (topic, payloadBuf) => {
+          try {
+            const msg = JSON.parse(payloadBuf.toString());
+            if (!msg) return;
+
+            if (pendingJoinResolve && pendingJoinResolve.code && topic.includes(`/${pendingJoinResolve.code}/`)) {
+              if (topic.endsWith('/state') && msg.code === pendingJoinResolve.code) {
+                const fn = pendingJoinResolve.resolve;
+                pendingJoinResolve = null;
+                fn(msg);
+                return;
+              }
+              if (topic.endsWith('/events') && msg.type === 'STATE_RESPONSE' && msg.state && msg.state.code === pendingJoinResolve.code) {
+                const fn = pendingJoinResolve.resolve;
+                pendingJoinResolve = null;
+                fn(msg.state);
+                return;
+              }
+            }
+
+            if (!activeCode || !topic.includes(`/${activeCode}/`)) return;
+
+            if (topic.endsWith('/state')) {
+              if (!msg.code || msg._sender === myId) return;
+              const incomingRev = Number(msg.rev || 0);
+              const currentRev = Number((roomState && roomState.rev) || 0);
+              if (roomState && incomingRev > 0 && currentRev > 0 && incomingRev < currentRev) {
+                return;
+              }
+
+              roomState = msg;
+              roomState.queue = Array.isArray(roomState.queue) ? roomState.queue : [];
+              if (roomState.tv) {
+                recordTvTimeAnchor(roomState.tv, true);
+              }
+              localStorage.setItem(`mb_td_room_${activeCode}`, JSON.stringify(roomState));
+              applyRoomState(roomState);
+            } else if (topic.endsWith('/events')) {
+              if (msg.sender === myId || !roomState) return;
+              handleRemoteRoomEvent(msg);
+            }
+          } catch {}
+        });
+      }
+
+      connectToBroker(0);
+    }
+
+    // Khi Mobile quay lại từ ứng dụng YouTube hoặc mở lại màn hình -> đồng bộ ngay bài hát và mốc giây
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && activeCode) {
+        if (mqttClient && !mqttClient.connected) {
+          try { mqttClient.reconnect(); } catch {}
+        }
+        setTimeout(() => {
+          if (mqttClient && mqttClient.connected && activeCode) {
+            subscribeRoomTopics(activeCode);
+            publishRoomEvent(activeCode, { type: 'REQUEST_STATE', requesterId: myId });
+          }
+        }, 350);
+      }
+    });
+
+    window.addEventListener('online', () => {
+      if (mqttClient && !mqttClient.connected) {
+        try { mqttClient.reconnect(); } catch {}
+      }
+    });
+
+    function subscribeRoomTopics(code) {
+      if (!mqttClient || !code) return;
+      mqttClient.subscribe(`${TOPIC_PREFIX}/${code}/state`, { qos: 1 });
+      mqttClient.subscribe(`${TOPIC_PREFIX}/${code}/events`, { qos: 1 });
+    }
+
+    function unsubscribeRoomTopics(code) {
+      if (!mqttClient || !code) return;
+      try {
+        mqttClient.unsubscribe(`${TOPIC_PREFIX}/${code}/state`);
+        mqttClient.unsubscribe(`${TOPIC_PREFIX}/${code}/events`);
+      } catch {}
+    }
+
+    function publishRetainedState(code, state) {
+      if (!mqttClient || !mqttConnected || !code) return;
+      const stamped = { ...state, _sender: myId };
+      mqttClient.publish(`${TOPIC_PREFIX}/${code}/state`, JSON.stringify(stamped), { qos: 1, retain: true });
+    }
+
+    function publishRoomEvent(code, eventObj) {
+      if (!mqttClient || !mqttConnected || !code) return;
+      const payload = JSON.stringify({ ...eventObj, sender: myId });
+      mqttClient.publish(`${TOPIC_PREFIX}/${code}/events`, payload, { qos: 1 });
+    }
+
+    function getMyName() {
+      const n = document.getElementById('player-name-input').value.trim() || defaultName;
+      localStorage.setItem('mb_td_name', n);
+      return n;
+    }
+
+    function buildLiveStateSnapshot() {
+      if (!roomState) return null;
+      const snapshot = JSON.parse(JSON.stringify(roomState));
+      if (snapshot.tv && !snapshot.tv.localVideoUrl) {
+        snapshot.tv.seekAt = getCurrentLiveTvSecond();
+        snapshot.tv.snapshotNonce = Date.now();
+      }
+      return snapshot;
+    }
+
+    function saveAndBroadcast(state, eventPayload = null) {
+      state.rev = Number(state.rev || 0) + 1;
+      roomState = state;
+      if (state.tv) {
+        recordTvTimeAnchor(state.tv, false);
+      }
+      if (!activeCode) return;
+
+      localStorage.setItem(`mb_td_room_${activeCode}`, JSON.stringify(state));
+      bc.postMessage({ type: 'SYNC', code: activeCode, state });
+
+      if (eventPayload) {
+        publishRoomEvent(activeCode, { ...eventPayload, rev: state.rev });
+      }
+      publishRetainedState(activeCode, state);
+      applyRoomState(state);
+    }
+
+    bc.addEventListener('message', (ev) => {
+      if (!ev.data) return;
+      if (ev.data.type === 'SYNC' && ev.data.code === activeCode) {
+        roomState = ev.data.state;
+        if (roomState.tv) recordTvTimeAnchor(roomState.tv, true);
+        applyRoomState(roomState);
+      } else if (ev.data.type === 'CHAT_LOCAL' && ev.data.code === activeCode && ev.data.senderId !== myId) {
+        onReceiveChat(ev.data.senderName, ev.data.text);
+      }
+    });
+
+    /* =========================================================================
+       2. WEBRTC ÂM THANH (NGƯỜI CẦM MIC HÁT & NGHE - KHÁN GIẢ CHỈ NGHE, MAX 2 MIC)
+       ========================================================================= */
+    let localMicStream = null;
+    let activeSenders = [];
+    let isHoldingMic = false;
+    let isChatOpen = false;
+    let unreadCount = 0;
+
+    const peers = new Map();
+    const peerMeta = new Map();
+
+    const RTC_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+      ]
+    };
+
+    function attachMicToPeer(peerId, pc) {
+      if (!localMicStream) return;
+      const track = localMicStream.getAudioTracks()[0];
+      if (!track) return;
+      activeSenders = activeSenders.filter(x => x.peerId !== peerId);
+      const tr = pc.getTransceivers().find(t =>
+        t.currentDirection !== 'stopped' && t.receiver && t.receiver.track && t.receiver.track.kind === 'audio');
+      if (tr) {
+        if (tr.direction !== 'sendrecv') { try { tr.direction = 'sendrecv'; } catch {} }
+        tr.sender.replaceTrack(track).catch(() => {});
+        activeSenders.push({ peerId, sender: tr.sender });
+      } else {
+        const sender = pc.addTrack(track, localMicStream);
+        activeSenders.push({ peerId, sender });
+      }
+    }
+
+    function prepareAudioTransceivers(peerId, pc) {
+      pc.getTransceivers().forEach(t => {
+        if (t.currentDirection !== 'stopped' && t.receiver && t.receiver.track &&
+            t.receiver.track.kind === 'audio' && t.direction !== 'sendrecv') {
+          try { t.direction = 'sendrecv'; } catch {}
+        }
+      });
+      if (isHoldingMic && localMicStream) attachMicToPeer(peerId, pc);
+    }
+
+    let micMeterCtx = null;
+    let micMeterRaf = 0;
+
+    function stopMicMeter() {
+      cancelAnimationFrame(micMeterRaf);
+      micMeterRaf = 0;
+      if (micMeterCtx) { try { micMeterCtx.close(); } catch {} micMeterCtx = null; }
+      const wrap = document.getElementById('mic-meter');
+      const bar = document.getElementById('mic-meter-bar');
+      if (bar) bar.style.width = '0%';
+      if (wrap) wrap.classList.add('hidden');
+    }
+
+    function startMicMeter(stream) {
+      stopMicMeter();
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        micMeterCtx = new AC();
+        if (micMeterCtx.state === 'suspended') micMeterCtx.resume().catch(() => {});
+        const srcNode = micMeterCtx.createMediaStreamSource(stream);
+        const analyser = micMeterCtx.createAnalyser();
+        analyser.fftSize = 512;
+        srcNode.connect(analyser);
+        const buf = new Uint8Array(analyser.fftSize);
+        const wrap = document.getElementById('mic-meter');
+        const bar = document.getElementById('mic-meter-bar');
+        wrap.classList.remove('hidden');
+        const tick = () => {
+          analyser.getByteTimeDomainData(buf);
+          let peak = 0;
+          for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
+          bar.style.width = Math.min(100, (peak / 128) * 180) + '%';
+          micMeterRaf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch {}
+    }
+
+    function sendSignal(payload) {
+      if (!activeCode) return;
+      publishRoomEvent(activeCode, payload);
+    }
+
+    function unlockAllRemoteAudios() {
+      const audios = document.querySelectorAll('#remote-audios audio');
+      let anyBlocked = false;
+      audios.forEach(a => {
+        if (a.paused && a.srcObject) {
+          a.play().catch(() => { anyBlocked = true; });
+        }
+      });
+      document.getElementById('btn-unlock-audio').style.display = anyBlocked ? 'inline-flex' : 'none';
+    }
+
+    document.getElementById('btn-unlock-audio').addEventListener('click', unlockAllRemoteAudios);
+
+    function attachRemoteAudioListener(peerId, pc) {
+      pc.ontrack = (event) => {
+        let audioEl = document.getElementById('audio-' + peerId);
+        if (!audioEl) {
+          audioEl = document.createElement('audio');
+          audioEl.id = 'audio-' + peerId;
+          audioEl.autoplay = true;
+          audioEl.playsInline = true;
+          document.getElementById('remote-audios').appendChild(audioEl);
+        }
+        const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+        audioEl.srcObject = stream;
+        audioEl.play().catch(() => {
+          document.getElementById('btn-unlock-audio').style.display = 'inline-flex';
+          showToast('🎧 Bấm nút "Bật nghe giọng hát" ở góc trên để nghe!');
+        });
+      };
+    }
+
+    function cleanupPeerConnection(peerId) {
+      const pc = peers.get(peerId);
+      if (pc) {
+        try { pc.close(); } catch {}
+        peers.delete(peerId);
+      }
+      peerMeta.delete(peerId);
+      activeSenders = activeSenders.filter(s => s.peerId !== peerId);
+      const audioEl = document.getElementById('audio-' + peerId);
+      if (audioEl) audioEl.remove();
+    }
+
+    function cleanupAllWebRTC() {
+      if (localMicStream) {
+        localMicStream.getTracks().forEach(t => t.stop());
+        localMicStream = null;
+      }
+      activeSenders = [];
+      stopMicMeter();
+      isHoldingMic = false;
+      const btn = document.getElementById('btn-mic');
+      if (btn) {
+        btn.textContent = '🎤 Cầm mic hát';
+        btn.classList.remove('active-mic');
+      }
+      Array.from(peers.keys()).forEach(cleanupPeerConnection);
+    }
+
+    function getOrCreatePeerConnection(peerId, initiateNow = false) {
+      if (peers.has(peerId)) return peers.get(peerId);
+
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      const meta = {
+        polite: myId < peerId,
+        makingOffer: false,
+        iceQueue: []
+      };
+      peers.set(peerId, pc);
+      peerMeta.set(peerId, meta);
+
+      attachRemoteAudioListener(peerId, pc);
+
+      if (initiateNow && !meta.polite) {
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
+      }
+      if (isHoldingMic && localMicStream) {
+        attachMicToPeer(peerId, pc);
+      }
+
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          sendSignal({
+            type: 'webrtc_ice',
+            targetId: peerId,
+            candidate: candidate.toJSON ? candidate.toJSON() : candidate
+          });
+        }
+      };
+
+      pc.onnegotiationneeded = async () => {
+        try {
+          meta.makingOffer = true;
+          await pc.setLocalDescription();
+          sendSignal({
+            type: 'webrtc_desc',
+            targetId: peerId,
+            description: pc.localDescription
+          });
+        } catch {} finally {
+          meta.makingOffer = false;
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed') {
+          try { pc.restartIce(); } catch {}
+        }
+      };
+
+      return pc;
+    }
+
+    async function handleIncomingWebRTCSignal(ev) {
+      if (ev.targetId && ev.targetId !== myId) return;
+      const peerId = ev.sender;
+      if (!peerId || peerId === myId) return;
+
+      const pc = getOrCreatePeerConnection(peerId, false);
+      const meta = peerMeta.get(peerId);
+
+      if (ev.type === 'webrtc_desc' && ev.description) {
+        const description = ev.description;
+        const offerCollision = description.type === 'offer' && (meta.makingOffer || pc.signalingState !== 'stable');
+        if (offerCollision && !meta.polite) return;
+
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(description));
+          while (meta.iceQueue.length > 0) {
+            const c = meta.iceQueue.shift();
+            await pc.addIceCandidate(new RTCIceCandidate(c));
+          }
+          if (description.type === 'offer') {
+            prepareAudioTransceivers(peerId, pc);
+            await pc.setLocalDescription();
+            sendSignal({
+              type: 'webrtc_desc',
+              targetId: peerId,
+              description: pc.localDescription
+            });
+          }
+        } catch {}
+      } else if (ev.type === 'webrtc_ice' && ev.candidate) {
+        try {
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(ev.candidate));
+          } else {
+            meta.iceQueue.push(ev.candidate);
+          }
+        } catch {}
+      }
+    }
+
+    function syncWebRTCPeersWithPlayers(playersObj) {
+      const activeIds = new Set(Object.keys(playersObj || {}));
+      Array.from(peers.keys()).forEach(pid => {
+        if (!activeIds.has(pid)) cleanupPeerConnection(pid);
+      });
+      activeIds.forEach(pid => {
+        if (pid !== myId && !peers.has(pid)) {
+          getOrCreatePeerConnection(pid, true);
+        }
+      });
+    }
+
+    function countActiveMicHolders(excludeMyId = false) {
+      if (!roomState || !roomState.players) return 0;
+      return Object.values(roomState.players).filter(p => p.hasMic && (!excludeMyId || p.id !== myId)).length;
+    }
+
+    async function toggleMicRole() {
+      if (!roomState || !roomState.players || !roomState.players[myId]) return;
+      const btn = document.getElementById('btn-mic');
+
+      if (!isHoldingMic) {
+        if (countActiveMicHolders(true) >= MAX_MICS_IN_ROOM) {
+          showToast(`⚠️ Phòng đã đủ tối đa ${MAX_MICS_IN_ROOM} người cầm mic!`);
+          return;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          alert('Micro chỉ hoạt động khi mở trang bằng HTTPS (hoặc localhost). Trên điện thoại hãy mở link https:// (GitHub Pages, Netlify, Vercel hoặc VS Code Ports → Public), không mở file:// hay http://192.168.x.x.');
+          return;
+        }
+
+        try {
+          localMicStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          });
+
+          if (countActiveMicHolders(true) >= MAX_MICS_IN_ROOM) {
+            localMicStream.getTracks().forEach(t => t.stop());
+            localMicStream = null;
+            showToast(`⚠️ Đã có đủ ${MAX_MICS_IN_ROOM} người cầm mic trước bạn!`);
+            return;
+          }
+
+          peers.forEach((pc, peerId) => attachMicToPeer(peerId, pc));
+          startMicMeter(localMicStream);
+          const micTrack = localMicStream.getAudioTracks()[0];
+          if (micTrack) {
+            micTrack.addEventListener('ended', () => {
+              if (isHoldingMic) {
+                releaseMyMic(true);
+                showToast('🎤 Micro bị ngắt (có thể do cuộc gọi hoặc ứng dụng khác chiếm mic)');
+              }
+            });
+          }
+
+          isHoldingMic = true;
+          btn.textContent = '⏹ Trả mic (Đang hát)';
+          btn.classList.add('active-mic');
+
+          const me = roomState.players[myId];
+          me.hasMic = true;
+          me.micClaimedAt = Date.now();
+
+          saveAndBroadcast(roomState, { type: 'UPSERT_PLAYER', player: me });
+          appendSystemChatMessage('🎤 Bạn đã cầm mic (giọng hát đang phát cho cả phòng)');
+        } catch (err) {
+          alert('Không thể truy cập micro: ' + err.message);
+        }
+      } else {
+        releaseMyMic(true);
+      }
+    }
+
+    function releaseMyMic(broadcastChange = true) {
+      const btn = document.getElementById('btn-mic');
+      activeSenders.forEach(({ sender }) => {
+        try { sender.replaceTrack(null).catch(() => {}); } catch {}
+      });
+      activeSenders = [];
+      stopMicMeter();
+
+      if (localMicStream) {
+        localMicStream.getTracks().forEach(t => t.stop());
+        localMicStream = null;
+      }
+
+      isHoldingMic = false;
+      btn.textContent = '🎤 Cầm mic hát';
+      btn.classList.remove('active-mic');
+
+      if (broadcastChange && roomState && roomState.players && roomState.players[myId]) {
+        const me = roomState.players[myId];
+        me.hasMic = false;
+        me.micClaimedAt = 0;
+        saveAndBroadcast(roomState, { type: 'UPSERT_PLAYER', player: me });
+        appendSystemChatMessage('🔇 Bạn đã trả mic (chế độ khán giả chỉ nghe)');
+      }
+    }
+
+    window.toggleMicRole = toggleMicRole;
+
+    /* =========================================================================
+       3. TÍNH NĂNG CHAT NHANH
+       ========================================================================= */
+    function toggleChat() {
+      isChatOpen = !isChatOpen;
+      const box = document.getElementById('quick-chat-box');
+      const badge = document.getElementById('chat-badge');
+
+      if (isChatOpen) {
+        box.classList.remove('hidden');
+        unreadCount = 0;
+        badge.classList.add('hidden');
+        setTimeout(() => document.getElementById('chat-input').focus(), 40);
+      } else {
+        box.classList.add('hidden');
+      }
+    }
+
+    function handleSendChat(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text || !activeCode) return;
+
+      const senderName = getMyName();
+      sendSignal({ type: 'quick_chat', senderName, text });
+      bc.postMessage({ type: 'CHAT_LOCAL', code: activeCode, senderId: myId, senderName, text });
+      appendChatMessage('Bạn', text, true);
+      input.value = '';
+    }
+
+    function onReceiveChat(senderName, text) {
+      appendChatMessage(senderName, text, false);
+      if (!isChatOpen) {
+        unreadCount++;
+        const badge = document.getElementById('chat-badge');
+        badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+        badge.classList.remove('hidden');
+      }
+    }
+
+    function appendChatMessage(sender, text, isMine = false) {
+      const list = document.getElementById('chat-messages');
+      const item = document.createElement('div');
+      item.className = 'msg-item' + (isMine ? ' mine' : '');
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'msg-sender';
+      nameEl.textContent = sender;
+
+      const textEl = document.createElement('div');
+      textEl.textContent = text;
+
+      item.append(nameEl, textEl);
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function appendSystemChatMessage(text) {
+      const list = document.getElementById('chat-messages');
+      const item = document.createElement('div');
+      item.className = 'msg-item system';
+      item.textContent = text;
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    window.toggleChat = toggleChat;
+    window.handleSendChat = handleSendChat;
+
+    /* =========================================================================
+       4. XỬ LÝ SỰ KIỆN TỪ PHÒNG ONLINE & ĐỒNG BỘ MỐC GIÂY REALTIME
+       ========================================================================= */
+    function handleRemoteRoomEvent(ev) {
+      if (!roomState) return;
+      roomState.queue = Array.isArray(roomState.queue) ? roomState.queue : [];
+      let changed = false;
+
+      if (ev.type === 'webrtc_desc' || ev.type === 'webrtc_ice') {
+        handleIncomingWebRTCSignal(ev);
+        return;
+      }
+
+      if (ev.type === 'quick_chat' && ev.text) {
+        onReceiveChat(ev.senderName || 'Thành viên', ev.text);
+        return;
+      }
+
+      if (ev.type === 'REQUEST_STATE') {
+        const sendLiveSnapshot = () => {
+          if (!roomState || !activeCode) return;
+          const snapshot = buildLiveStateSnapshot();
+          if (isRoomHost) {
+            publishRetainedState(activeCode, snapshot);
+          }
+          publishRoomEvent(activeCode, {
+            type: 'STATE_RESPONSE',
+            targetId: ev.requesterId,
+            state: snapshot
+          });
+        };
+
+        if (isRoomHost) {
+          sendLiveSnapshot();
+        } else {
+          setTimeout(sendLiveSnapshot, 350 + Math.floor(Math.random() * 250));
+        }
+        return;
+      }
+
+      if (ev.type === 'STATE_RESPONSE' && ev.state && ev.state.code === activeCode) {
+        if (ev.targetId && ev.targetId !== myId) return;
+        const incomingRev = Number(ev.state.rev || 0);
+        const currentRev = Number(roomState.rev || 0);
+        if (incomingRev >= currentRev) {
+          const incomingSnapNonce = Number((ev.state.tv && ev.state.tv.snapshotNonce) || 0);
+          const isNewSnapshot = incomingSnapNonce > 0 && incomingSnapNonce !== lastSyncedSnapshotNonce;
+          if (isNewSnapshot) {
+            lastSyncedSnapshotNonce = incomingSnapNonce;
+          }
+          roomState = ev.state;
+          roomState.queue = Array.isArray(roomState.queue) ? roomState.queue : [];
+          if (roomState.tv) {
+            recordTvTimeAnchor(roomState.tv, isNewSnapshot);
+          }
+          localStorage.setItem(`mb_td_room_${activeCode}`, JSON.stringify(roomState));
+          applyRoomState(roomState);
+          if (isNewSnapshot && roomState.tv) {
+            showToast(`⏱ Đã đồng bộ Tivi tại mốc ${formatPlaybackClock(getTargetSyncedSecond(roomState.tv))}`);
+          }
+        }
+        return;
+      }
+
+      if (typeof ev.rev === 'number' && ev.rev > Number(roomState.rev || 0)) {
+        roomState.rev = ev.rev;
+      }
+
+      if (ev.type === 'UPSERT_PLAYER' && ev.player) {
+        roomState.players = roomState.players || {};
+        const prev = roomState.players[ev.player.id];
+        const isNewJoin = !prev;
+        roomState.players[ev.player.id] = ev.player;
+
+        if (isNewJoin) {
+          showToast(`👋 ${ev.player.name} vừa vào phòng!`);
+          appendSystemChatMessage(`👋 ${ev.player.name} đã vào phòng hát`);
+        } else if (!prev.hasMic && ev.player.hasMic) {
+          showToast(`🎤 ${ev.player.name} đã cầm mic hát!`);
+          appendSystemChatMessage(`🎤 ${ev.player.name} đã cầm mic hát`);
+        } else if (prev.hasMic && !ev.player.hasMic) {
+          appendSystemChatMessage(`🔇 ${ev.player.name} đã trả mic`);
+        }
+        changed = true;
+      } else if (ev.type === 'PLAYER_ANIM' && ev.playerId) {
+        if (roomState.players && roomState.players[ev.playerId]) {
+          roomState.players[ev.playerId].animMode = ev.animMode;
+          roomState.players[ev.playerId].animUntil = ev.animUntil;
+          changed = true;
+        }
+      } else if (ev.type === 'SET_TV' && ev.tv) {
+        roomState.tv = ev.tv;
+        recordTvTimeAnchor(roomState.tv, true);
+        changed = true;
+      } else if (ev.type === 'SWAP_SEAT' && ev.p1 && ev.p2) {
+        const a = roomState.players[ev.p1];
+        const b = roomState.players[ev.p2];
+        if (a && b) {
+          const tmp = a.seatIndex;
+          a.seatIndex = b.seatIndex;
+          b.seatIndex = tmp;
+          changed = true;
+        }
+      } else if (ev.type === 'QUEUE_ADD' && ev.item) {
+        if (!roomState.queue.some(q => q.id === ev.item.id)) {
+          roomState.queue.push(ev.item);
+          showToast(`➕ ${ev.item.addedBy} đã thêm "${ev.item.title}" vào hàng chờ`);
+          changed = true;
+        }
+      } else if (ev.type === 'QUEUE_REMOVE' && ev.itemId) {
+        const prevLen = roomState.queue.length;
+        roomState.queue = roomState.queue.filter(q => q.id !== ev.itemId);
+        if (roomState.queue.length !== prevLen) changed = true;
+      } else if (ev.type === 'QUEUE_PRIORITIZE' && ev.itemId) {
+        const idx = roomState.queue.findIndex(q => q.id === ev.itemId);
+        if (idx > 0) {
+          const [picked] = roomState.queue.splice(idx, 1);
+          roomState.queue.unshift(picked);
+          changed = true;
+        }
+      } else if (ev.type === 'QUEUE_PLAY_NOW' && ev.tv) {
+        if (ev.itemId) {
+          roomState.queue = roomState.queue.filter(q => q.id !== ev.itemId);
+        }
+        roomState.tv = ev.tv;
+        recordTvTimeAnchor(roomState.tv, true);
+        showToast(`▶ ${ev.tv.addedBy || 'Thành viên'} phát bài: ${ev.tv.title}`);
+        changed = true;
+      } else if (ev.type === 'QUEUE_NEXT' && ev.tv) {
+        if (roomState.tv && roomState.tv.videoId === ev.tv.videoId && roomState.tv.seekNonce === ev.tv.seekNonce) {
+          return;
+        }
+        if (ev.poppedId) {
+          roomState.queue = roomState.queue.filter(q => q.id !== ev.poppedId);
+        } else if (roomState.queue.length > 0) {
+          roomState.queue.shift();
+        }
+        roomState.tv = ev.tv;
+        recordTvTimeAnchor(roomState.tv, true);
+        showToast(`⏭ Chuyển bài tiếp theo: ${ev.tv.title}`);
+        changed = true;
+      }
+
+      if (changed) {
+        localStorage.setItem(`mb_td_room_${activeCode}`, JSON.stringify(roomState));
+        applyRoomState(roomState);
+      }
+    }
+
+    /* =========================================================================
+       5. KHỞI TẠO THREE.JS (WEBGL + STUDIO ENVIRONMENT + CSS3D TIVI)
+       ========================================================================= */
+    const scene = new THREE.Scene();
+    const cssScene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 10, 30000);
+
+    const webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, premultipliedAlpha: true });
+    webglRenderer.setSize(window.innerWidth, window.innerHeight);
+    webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    webglRenderer.shadowMap.enabled = true;
+    webglRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    webglRenderer.setClearColor(0x000000, 0);
+    document.getElementById('webgl-container').appendChild(webglRenderer.domElement);
+
+    const pmremGenerator = new THREE.PMREMGenerator(webglRenderer);
+    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.8;
+
+    const css3dRenderer = new CSS3DRenderer();
+    css3dRenderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('css3d-container').appendChild(css3dRenderer.domElement);
+
+    const controls = new OrbitControls(camera, webglRenderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.maxPolarAngle = Math.PI * 0.46;
+    controls.minPolarAngle = 0.08;
+
+    const worldRoot = new THREE.Group();
+    worldRoot.scale.setScalar(WORLD_SCALE);
+    scene.add(worldRoot);
+
+    const roomGroup = new THREE.Group();
+    const seatsGroup = new THREE.Group();
+    const charsGroup = new THREE.Group();
+    worldRoot.add(roomGroup, seatsGroup, charsGroup);
+
+    let builtRoomKey = null;
+    let seatSlots = [];
+    let seatHitboxes = [];
+    let charHitboxes = [];
+    let animatedChars = [];
+    let tabletHitbox = null;
+    let tvHitbox = null;
+    let tabletAnchor3D = new THREE.Vector3();
+    let tvAnchor3D = new THREE.Vector3();
+    let tvCssParams = null;
+    let tvZoomed = false;
+    let tvZoomSaved = null;
+    let discoSpots = [];
+
+    const alphaCutoutMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -4,
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.AddEquation,
+      blendSrc: THREE.ZeroFactor,
+      blendDst: THREE.ZeroFactor,
+      blendEquationAlpha: THREE.AddEquation,
+      blendSrcAlpha: THREE.ZeroFactor,
+      blendDstAlpha: THREE.ZeroFactor,
+      vertexShader: `void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0); }`
+    });
+
+    /* =========================================================================
+       6. MÔ HÌNH SOFA RIÊNG CHO TỪNG PHÒNG
+       ========================================================================= */
+    function createWovenFabricTexture(baseHex, weaveLight, weaveDark, repeatX = 4, repeatY = 4) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 256; i += 4) {
+        ctx.fillStyle = i % 8 === 0 ? weaveLight : weaveDark;
+        ctx.fillRect(0, i, 256, 1.5);
+        ctx.fillRect(i, 0, 1.5, 256);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(repeatX, repeatY);
+      return tex;
+    }
+
+    function createPinePillowTexture() {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, 256, 256);
+      ctx.fillStyle = '#1e293b';
+      for (let r = 0; r < 4; r++) {
+        for (let col = 0; col < 4; col++) {
+          const cx = 36 + col * 60 + (r % 2) * 14;
+          const cy = 44 + r * 56;
+          ctx.beginPath(); ctx.moveTo(cx, cy - 18); ctx.lineTo(cx - 12, cy); ctx.lineTo(cx + 12, cy); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(cx, cy - 8); ctx.lineTo(cx - 15, cy + 12); ctx.lineTo(cx + 15, cy + 12); ctx.fill();
+          ctx.fillRect(cx - 2.5, cy + 12, 5, 7);
+        }
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    function addTaperedWoodLegs(group, spanX, spanZ, legH = 0.15) {
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0xd2a679, roughness: 0.45 });
+      const corners = [
+        [-spanX / 2, -spanZ / 2, -0.11, 0.11],
+        [ spanX / 2, -spanZ / 2,  0.11, 0.11],
+        [-spanX / 2,  spanZ / 2, -0.11, -0.11],
+        [ spanX / 2,  spanZ / 2,  0.11, -0.11]
+      ];
+      corners.forEach(([lx, lz, tiltZ, tiltX]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.014, legH, 14), woodMat);
+        leg.position.set(lx, legH / 2, lz);
+        leg.rotation.z = tiltZ; leg.rotation.x = tiltX; leg.castShadow = true;
+        group.add(leg);
+      });
+    }
+
+    function addSlimMetalLegs(group, spanX, spanZ, legH = 0.12) {
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.25 });
+      [[-spanX / 2, -spanZ / 2], [spanX / 2, -spanZ / 2], [-spanX / 2, spanZ / 2], [spanX / 2, spanZ / 2]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.010, legH, 12), metalMat);
+        leg.position.set(lx, legH / 2, lz); leg.castShadow = true;
+        group.add(leg);
+      });
+    }
+
+    function createPipedCushion(w, h, d, fabricMat, pipingMat) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), fabricMat);
+      body.castShadow = true; body.receiveShadow = true;
+      const topRim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.012, 0.012, d + 0.012), pipingMat);
+      topRim.position.y = h / 2 - 0.008;
+      const botRim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.012, 0.012, d + 0.012), pipingMat);
+      botRim.position.y = -h / 2 + 0.008;
+      g.add(body, topRim, botRim);
+      return g;
+    }
+
+    function createSmallBoxTealSofaSet() {
+      const tex = createWovenFabricTexture('#7bb0b2', 'rgba(255,255,255,0.08)', 'rgba(15,40,42,0.08)', 5, 5);
+      const fabricMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.84 });
+      const pipingMat = new THREE.MeshStandardMaterial({ color: 0x649799, roughness: 0.8 });
+      const pillowMat = new THREE.MeshStandardMaterial({ color: 0x8bc0c2, map: tex, roughness: 0.8 });
+
+      const doubleSofa = new THREE.Group();
+      const totalW = 1.66, totalD = 0.76, legH = 0.15;
+      addTaperedWoodLegs(doubleSofa, totalW - 0.16, totalD - 0.14, legH);
+
+      const baseApron = new THREE.Mesh(new THREE.BoxGeometry(totalW, 0.13, totalD), fabricMat);
+      baseApron.position.y = legH + 0.065; baseApron.castShadow = true; baseApron.receiveShadow = true;
+      doubleSofa.add(baseApron);
+
+      const backRest = new THREE.Mesh(new THREE.BoxGeometry(totalW - 0.18, 0.45, 0.15), fabricMat);
+      backRest.position.set(0, legH + 0.35, -totalD / 2 + 0.075); backRest.castShadow = true;
+      doubleSofa.add(backRest);
+
+      [-1, 1].forEach(side => {
+        const armX = side * (totalW / 2 - 0.065);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.45, totalD), fabricMat);
+        arm.position.set(armX, legH + 0.35, 0); arm.castShadow = true;
+        const piping = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.44, 10), pipingMat);
+        piping.position.set(armX, legH + 0.35, totalD / 2 + 0.002);
+        doubleSofa.add(arm, piping);
+      });
+
+      const cushW = (totalW - 0.28) / 2, cushD = totalD - 0.16;
+      [-1, 1].forEach(side => {
+        const cush = createPipedCushion(cushW, 0.14, cushD, fabricMat, pipingMat);
+        cush.position.set(side * (cushW / 2 + 0.006), legH + 0.20, 0.06);
+        doubleSofa.add(cush);
+
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.30, 0.10), pillowMat);
+        pillow.position.set(side * (totalW / 2 - 0.30), legH + 0.40, -totalD / 2 + 0.22);
+        pillow.rotation.set(-0.24, -side * 0.22, side * 0.18); pillow.castShadow = true;
+        doubleSofa.add(pillow);
+      });
+
+      const ottoman = new THREE.Group();
+      const ow = 0.58, od = 0.54;
+      addTaperedWoodLegs(ottoman, ow - 0.12, od - 0.12, legH);
+      const oBase = new THREE.Mesh(new THREE.BoxGeometry(ow, 0.13, od), fabricMat);
+      oBase.position.y = legH + 0.065; oBase.castShadow = true; oBase.receiveShadow = true;
+      const oTop = createPipedCushion(ow + 0.02, 0.14, od + 0.02, fabricMat, pipingMat);
+      oTop.position.y = legH + 0.20;
+      ottoman.add(oBase, oTop);
+
+      return { doubleSofa, ottoman };
+    }
+
+    function createMediumBoxModernBlueSofa(width = 2.45) {
+      const sofa = new THREE.Group();
+      const tex = createWovenFabricTexture('#146c94', 'rgba(255,255,255,0.07)', 'rgba(6,28,44,0.12)', 6, 4);
+      const fabricMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82 });
+      const backCushMat = new THREE.MeshStandardMaterial({ color: 0x1978a3, map: tex, roughness: 0.82 });
+      const pinePillowMat = new THREE.MeshStandardMaterial({ map: createPinePillowTexture(), roughness: 0.78 });
+
+      const totalD = 0.84, legH = 0.16;
+      addTaperedWoodLegs(sofa, width - 0.22, totalD - 0.18, legH);
+
+      const seatBase = new THREE.Mesh(new THREE.BoxGeometry(width - 0.16, 0.22, totalD - 0.04), fabricMat);
+      seatBase.position.set(0, legH + 0.11, 0.02); seatBase.castShadow = true; seatBase.receiveShadow = true;
+      sofa.add(seatBase);
+
+      const backFrame = new THREE.Mesh(new THREE.BoxGeometry(width - 0.14, 0.44, 0.12), fabricMat);
+      backFrame.position.set(0, legH + 0.34, -totalD / 2 + 0.06); backFrame.castShadow = true;
+      sofa.add(backFrame);
+
+      [-1, 1].forEach(side => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.44, totalD), fabricMat);
+        arm.position.set(side * (width / 2 - 0.055), legH + 0.33, 0);
+        arm.rotation.z = -side * 0.05; arm.castShadow = true;
+        sofa.add(arm);
+      });
+
+      const backW = (width - 0.26) / 2;
+      [-1, 1].forEach(side => {
+        const bc = new THREE.Mesh(new THREE.BoxGeometry(backW, 0.34, 0.14), backCushMat);
+        bc.position.set(side * (backW / 2 + 0.01), legH + 0.37, -totalD / 2 + 0.18);
+        bc.rotation.x = -0.14; bc.castShadow = true;
+        sofa.add(bc);
+      });
+
+      const pinePillow = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.10), pinePillowMat);
+      pinePillow.position.set(width / 2 - 0.36, legH + 0.36, -totalD / 2 + 0.29);
+      pinePillow.rotation.set(-0.18, -0.25, 0.08); pinePillow.castShadow = true;
+
+      const blueSidePillow = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.10), fabricMat);
+      blueSidePillow.position.set(-width / 2 + 0.24, legH + 0.33, 0.02);
+      blueSidePillow.rotation.set(0.1, 0.2, -0.55); blueSidePillow.castShadow = true;
+
+      sofa.add(pinePillow, blueSidePillow);
+      return sofa;
+    }
+
+    function createRichBoxLSectionalSofa() {
+      const lSofa = new THREE.Group();
+      const tex = createWovenFabricTexture('#6ea6a3', 'rgba(255,255,255,0.08)', 'rgba(18,45,44,0.1)', 8, 6);
+      const sageMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82 });
+      const headrestMat = new THREE.MeshStandardMaterial({ color: 0x7ab2af, map: tex, roughness: 0.8 });
+
+      const mainW = 5.6, mainD = 1.05, chaiseW = 1.45, chaiseL = 2.45, legH = 0.13;
+      addSlimMetalLegs(lSofa, mainW - 0.3, mainD - 0.2, legH);
+
+      const mainSeat = new THREE.Mesh(new THREE.BoxGeometry(mainW - 0.36, 0.24, mainD - 0.16), sageMat);
+      mainSeat.position.set(0, legH + 0.12, 0.08); mainSeat.castShadow = true; mainSeat.receiveShadow = true;
+      lSofa.add(mainSeat);
+
+      [-1, 1].forEach(side => {
+        const armX = side * (mainW / 2 - 0.18);
+        const armBase = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.34, mainD), sageMat);
+        armBase.position.set(armX, legH + 0.17, 0);
+        const armPad = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, mainD + 0.02), headrestMat);
+        armPad.position.set(armX + side * 0.03, legH + 0.38, 0);
+        armBase.castShadow = true; armPad.castShadow = true;
+        lSofa.add(armBase, armPad);
+      });
+
+      const backLower = new THREE.Mesh(new THREE.BoxGeometry(mainW - 0.65, 0.34, 0.24), sageMat);
+      backLower.position.set(0, legH + 0.36, -mainD / 2 + 0.14); backLower.castShadow = true;
+      lSofa.add(backLower);
+
+      const segW = (mainW - 0.72) / 4;
+      for (let i = 0; i < 4; i++) {
+        const sx = -((mainW - 0.72) / 2) + segW * (i + 0.5);
+        const isRaised = i >= 2;
+        const hr = new THREE.Mesh(new THREE.BoxGeometry(segW - 0.04, 0.26, 0.15), headrestMat);
+        hr.position.set(sx, legH + (isRaised ? 0.62 : 0.54), -mainD / 2 + (isRaised ? 0.16 : 0.22));
+        hr.rotation.x = isRaised ? -0.15 : -0.58; hr.castShadow = true;
+        lSofa.add(hr);
+      }
+
+      const chaiseX = mainW / 2 - chaiseW / 2 - 0.28;
+      const chaiseZ = chaiseL / 2 - mainD / 2;
+      addSlimMetalLegs(lSofa, chaiseW - 0.2, chaiseL - 0.3, legH);
+      const chaiseSeat = new THREE.Mesh(new THREE.BoxGeometry(chaiseW, 0.24, chaiseL), sageMat);
+      chaiseSeat.position.set(chaiseX, legH + 0.12, chaiseZ); chaiseSeat.castShadow = true; chaiseSeat.receiveShadow = true;
+      lSofa.add(chaiseSeat);
+
+      const darkPillow = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.42, 0.14), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 }));
+      darkPillow.position.set(-mainW / 2 + 0.75, legH + 0.44, -mainD / 2 + 0.36); darkPillow.rotation.set(-0.22, 0.25, -0.1);
+
+      const stripePillow = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.12), new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.8 }));
+      stripePillow.position.set(-mainW / 2 + 1.15, legH + 0.37, -mainD / 2 + 0.42); stripePillow.rotation.set(-0.28, -0.15, 0.08);
+
+      const terraPillow = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.13), new THREE.MeshStandardMaterial({ color: 0xc27856, roughness: 0.85 }));
+      terraPillow.position.set(chaiseX - 0.12, legH + 0.36, 0.15); terraPillow.rotation.set(-0.45, 0.2, 0.1);
+
+      const throwBlanket = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.03, 1.35), new THREE.MeshStandardMaterial({ color: 0x5c4938, roughness: 0.92 }));
+      throwBlanket.position.set(chaiseX + 0.28, legH + 0.255, chaiseZ + 0.35);
+
+      lSofa.add(darkPillow, stripePillow, terraPillow, throwBlanket);
+      return lSofa;
+    }
+
+    /* =========================================================================
+       7. LOA KARAOKE MK ACOUSTIC & MICRO SENNHEISER E 945
+       ========================================================================= */
+    function createMKAcousticSpeaker(scale = 1) {
+      const spk = new THREE.Group();
+
+      const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#242934'; ctx.fillRect(0, 0, 512, 256);
+
+      ctx.fillStyle = '#07090d';
+      for (let y = 10; y < 246; y += 8) {
+        if (y > 108 && y < 148) continue;
+        const rowShift = ((y / 8) % 2) * 4;
+        for (let x = 12 + rowShift; x < 500; x += 8) {
+          ctx.beginPath(); ctx.arc(x, y, 2.8, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      ctx.strokeStyle = '#3b4252'; ctx.lineWidth = 6; ctx.strokeRect(3, 3, 506, 250);
+      const bandGrad = ctx.createLinearGradient(0, 110, 0, 146);
+      bandGrad.addColorStop(0, '#090b10'); bandGrad.addColorStop(0.5, '#3b4454'); bandGrad.addColorStop(1, '#090b10');
+      ctx.fillStyle = bandGrad; ctx.fillRect(6, 112, 500, 32);
+
+      ctx.fillStyle = '#252b36'; ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.roundRect(216, 88, 80, 80, 4); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#ffffff'; ctx.font = '900 26px Arial, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('MK', 256, 120);
+      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 8.2px Arial, sans-serif';
+      ctx.fillText('MK ACOUSTIC', 256, 137);
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(223, 145, 66, 14);
+      ctx.fillStyle = '#0f172a'; ctx.font = 'bold 7.6px Arial, sans-serif';
+      ctx.fillText('PROFESSIONAL', 256, 155);
+
+      const grilleTex = new THREE.CanvasTexture(c);
+      grilleTex.anisotropy = 4;
+
+      const w = 0.64, h = 0.35, d = 0.34;
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x262b35, roughness: 0.46, metalness: 0.15 });
+
+      const shape = new THREE.Shape();
+      const frontCornerZ = d / 2 - 0.055;
+      shape.moveTo(-w / 2, -frontCornerZ);
+      shape.quadraticCurveTo(0, -(d / 2 + 0.045), w / 2, -frontCornerZ);
+      shape.lineTo(w * 0.40, d / 2);
+      shape.lineTo(-w * 0.40, d / 2);
+      shape.closePath();
+
+      const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: true, bevelSize: 0.006, bevelThickness: 0.006 });
+      bodyGeo.rotateX(-Math.PI / 2);
+      bodyGeo.translate(0, -h / 2, 0);
+      const cabinet = new THREE.Mesh(bodyGeo, woodMat);
+      cabinet.castShadow = true;
+      spk.add(cabinet);
+
+      const grilleRadius = 1.049;
+      const halfAngle = 0.310;
+      const grilleGeo = new THREE.CylinderGeometry(grilleRadius, grilleRadius, h - 0.014, 36, 1, true, -halfAngle, halfAngle * 2);
+      const grilleMat = new THREE.MeshStandardMaterial({ map: grilleTex, metalness: 0.42, roughness: 0.34, side: THREE.DoubleSide });
+      const frontGrille = new THREE.Mesh(grilleGeo, grilleMat);
+      frontGrille.position.set(0, 0, -0.877);
+      spk.add(frontGrille);
+
+      spk.scale.setScalar(scale);
+      return spk;
+    }
+
+    let sharedSennheiserTextures = null;
+
+    function getSennheiserTextures() {
+      if (sharedSennheiserTextures) return sharedSennheiserTextures;
+
+      const handleCanvas = document.createElement('canvas');
+      handleCanvas.width = 512; handleCanvas.height = 512;
+      const hCtx = handleCanvas.getContext('2d');
+
+      const bodyGrad = hCtx.createLinearGradient(0, 0, 512, 0);
+      bodyGrad.addColorStop(0, '#1e222b'); bodyGrad.addColorStop(0.5, '#2b303d'); bodyGrad.addColorStop(1, '#1e222b');
+      hCtx.fillStyle = bodyGrad; hCtx.fillRect(0, 0, 512, 512);
+
+      hCtx.save();
+      hCtx.translate(256, 235);
+      hCtx.rotate(Math.PI / 2);
+      hCtx.fillStyle = '#ffffff';
+      hCtx.beginPath(); hCtx.roundRect(-14, -13, 28, 26, 3); hCtx.fill();
+      hCtx.strokeStyle = '#1e222b'; hCtx.lineWidth = 3.4;
+      hCtx.beginPath(); hCtx.moveTo(-10, -4); hCtx.bezierCurveTo(-2, -4, -2, 4, 10, 4); hCtx.stroke();
+
+      hCtx.fillStyle = '#ffffff'; hCtx.font = 'bold 22px Arial, Helvetica, sans-serif';
+      hCtx.textAlign = 'left'; hCtx.textBaseline = 'middle';
+      hCtx.fillText('SENNHEISER', 22, 0);
+      hCtx.fillStyle = '#e2e8f0'; hCtx.font = 'bold 10px Arial, Helvetica, sans-serif';
+      hCtx.fillText('MADE IN GERMANY', 23, 18);
+      hCtx.restore();
+
+      const handleMap = new THREE.CanvasTexture(handleCanvas);
+      handleMap.anisotropy = 4;
+
+      const meshCanvas = document.createElement('canvas'); meshCanvas.width = 256; meshCanvas.height = 256;
+      const mCtx = meshCanvas.getContext('2d');
+      mCtx.fillStyle = '#141923'; mCtx.fillRect(0, 0, 256, 256);
+      for (let y = -256; y < 512; y += 16) {
+        mCtx.strokeStyle = '#94a3b8'; mCtx.lineWidth = 4.2;
+        mCtx.beginPath(); mCtx.moveTo(0, y); mCtx.lineTo(256, y + 256); mCtx.stroke();
+        mCtx.strokeStyle = '#64748b'; mCtx.lineWidth = 4.2;
+        mCtx.beginPath(); mCtx.moveTo(256, y); mCtx.lineTo(0, y + 256); mCtx.stroke();
+      }
+      const grilleMap = new THREE.CanvasTexture(meshCanvas);
+      grilleMap.wrapS = THREE.RepeatWrapping; grilleMap.wrapT = THREE.RepeatWrapping; grilleMap.repeat.set(6, 3);
+
+      sharedSennheiserTextures = { handleMap, grilleMap };
+      return sharedSennheiserTextures;
+    }
+
+    function createSennheiserE945(scale = 1) {
+      const { handleMap, grilleMap } = getSennheiserTextures();
+      const micGroup = new THREE.Group();
+
+      const handlePoints = [
+        new THREE.Vector2(0.0115, 0.000),
+        new THREE.Vector2(0.0124, 0.015),
+        new THREE.Vector2(0.0132, 0.045),
+        new THREE.Vector2(0.0148, 0.080),
+        new THREE.Vector2(0.0172, 0.114),
+        new THREE.Vector2(0.0195, 0.138)
+      ];
+      const handleMesh = new THREE.Mesh(
+        new THREE.LatheGeometry(handlePoints, 32),
+        new THREE.MeshStandardMaterial({ map: handleMap, roughness: 0.42, metalness: 0.35, side: THREE.DoubleSide })
+      );
+      handleMesh.rotation.y = Math.PI; handleMesh.castShadow = true;
+      micGroup.add(handleMesh);
+
+      const neckCollar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0202, 0.0195, 0.008, 28),
+        new THREE.MeshStandardMaterial({ color: 0x3b4654, metalness: 0.65, roughness: 0.3 })
+      );
+      neckCollar.position.y = 0.141;
+      micGroup.add(neckCollar);
+
+      const grilleMat = new THREE.MeshStandardMaterial({
+        map: grilleMap, metalness: 0.55, roughness: 0.34, side: THREE.DoubleSide
+      });
+
+      const upperDome = new THREE.Mesh(
+        new THREE.LatheGeometry([
+          new THREE.Vector2(0.0198, 0.144),
+          new THREE.Vector2(0.0242, 0.155),
+          new THREE.Vector2(0.0240, 0.178),
+          new THREE.Vector2(0.0226, 0.193),
+          new THREE.Vector2(0.0192, 0.201),
+          new THREE.Vector2(0.0120, 0.2045),
+          new THREE.Vector2(0.0001, 0.2055)
+        ], 32),
+        grilleMat
+      );
+      upperDome.castShadow = true;
+      micGroup.add(upperDome);
+
+      micGroup.scale.setScalar(scale);
+      return micGroup;
+    }
+
+    /* =========================================================================
+       8. TEXTURE ĐÈN NEON, BẢNG CHỌN BÀI & TRANH TƯỜNG
+       ========================================================================= */
+    function createNeonTexture(type) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      if (type === 'heart') {
+        ctx.strokeStyle = '#ff2a55'; ctx.shadowColor = '#ff0033'; ctx.shadowBlur = 28; ctx.lineWidth = 11;
+        ctx.beginPath();
+        ctx.moveTo(256, 390);
+        ctx.bezierCurveTo(110, 290, 90, 150, 185, 130);
+        ctx.bezierCurveTo(230, 120, 256, 160, 256, 175);
+        ctx.bezierCurveTo(256, 160, 282, 120, 327, 130);
+        ctx.bezierCurveTo(422, 150, 402, 290, 256, 390);
+        ctx.stroke();
+        ctx.fillStyle = '#ff85a1'; ctx.font = 'italic bold 66px Georgia, serif'; ctx.textAlign = 'center';
+        ctx.fillText('Love', 256, 265);
+      } else if (type === 'flower') {
+        const cols = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#af52de', '#ff2d55'];
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          ctx.save();
+          ctx.translate(256 + Math.cos(a) * 95, 256 + Math.sin(a) * 95);
+          ctx.rotate(a);
+          ctx.strokeStyle = cols[i % cols.length]; ctx.shadowColor = cols[i % cols.length];
+          ctx.shadowBlur = 18; ctx.lineWidth = 9;
+          ctx.beginPath(); ctx.ellipse(0, 0, 48, 25, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.strokeStyle = '#38bdf8'; ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 16; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.arc(256, 256, 62, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(236, 242, 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(276, 242, 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(256, 262, 30, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      } else {
+        ctx.lineWidth = 11;
+        ctx.strokeStyle = '#3b82f6'; ctx.shadowColor = '#3b82f6'; ctx.shadowBlur = 22;
+        ctx.beginPath(); ctx.arc(205, 265, 42, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(235, 235); ctx.lineTo(270, 195); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(245, 195); ctx.lineTo(270, 195); ctx.lineTo(270, 220); ctx.stroke();
+        ctx.strokeStyle = '#ec4899'; ctx.shadowColor = '#ec4899'; ctx.shadowBlur = 22;
+        ctx.beginPath(); ctx.arc(315, 245, 42, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(315, 287); ctx.lineTo(315, 345); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(290, 318); ctx.lineTo(340, 318); ctx.stroke();
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    function createControlTabletTexture() {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 320;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 512, 320);
+      ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 18; ctx.strokeRect(9, 9, 494, 302);
+      const tiles = [
+        { bg: '#dc2626', label: 'TÌM BÀI' }, { bg: '#0284c7', label: 'HÀNG CHỜ' }, { bg: '#7c3aed', label: 'TOP HIT' },
+        { bg: '#16a34a', label: 'KARAOKE' }, { bg: '#d97706', label: 'ƯU TIÊN' }, { bg: '#db2777', label: 'DÁN LINK' }
+      ];
+      tiles.forEach((t, idx) => {
+        const r = Math.floor(idx / 3), col = idx % 3;
+        const x = 34 + col * 150, y = 36 + r * 124;
+        ctx.fillStyle = t.bg; ctx.beginPath(); ctx.roundRect(x, y, 136, 106, 12); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Segoe UI, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(t.label, x + 68, y + 60);
+      });
+      return new THREE.CanvasTexture(c);
+    }
+
+    function createMusicMuralTexture() {
+      const c = document.createElement('canvas'); c.width = 1024; c.height = 360;
+      const ctx = c.getContext('2d');
+      const letters = [
+        { ch: 'm', col: '#db2777', x: 240 }, { ch: 'u', col: '#7c3aed', x: 350 },
+        { ch: 's', col: '#2563eb', x: 450 }, { ch: 'i', col: '#eab308', x: 530 },
+        { ch: 'c', col: '#84cc16', x: 610 }
+      ];
+      ctx.font = 'bold 145px Comic Sans MS, sans-serif';
+      letters.forEach(l => { ctx.fillStyle = l.col; ctx.fillText(l.ch, l.x, 200); });
+      ctx.fillStyle = '#1e3a8a'; ctx.font = 'bold 34px sans-serif';
+      ctx.fillText('Every child is an artist ♪', 325, 265);
+      return new THREE.CanvasTexture(c);
+    }
+
+    function createNameBadge(name, hasMic, isMe) {
+      const c = document.createElement('canvas'); c.width = 340; c.height = 84;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = isMe ? 'rgba(236, 72, 153, 0.92)' : 'rgba(15, 23, 42, 0.85)';
+      ctx.beginPath(); ctx.roundRect(14, 12, 312, 60, 18); ctx.fill();
+      ctx.strokeStyle = hasMic ? '#facc15' : 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 25px Segoe UI, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText((hasMic ? '🎤 ' : '🎧 ') + name, 170, 43);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+      sp.scale.set(0.92, 0.23, 1);
+      return sp;
+    }
+
+    const discoSpotTex = (() => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(64, 64, 4, 64, 64, 60);
+      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    })();
+
+    /* =========================================================================
+       9. KỆ TIVI TREO TƯỜNG TADA + TIVI BẠC MẢNH + CẶP LOA MK ACOUSTIC VUÔNG GÓC
+       ========================================================================= */
+    function buildTadaTvConsoleAndScreen(tvOnLeft, half, H, S) {
+      const tvW = S * 0.43;
+      const tvH = tvW * (9 / 16);
+      const tvZ = 0.24;
+      const wallInnerX = tvOnLeft ? -half : half;
+      const inwardDir = tvOnLeft ? 1 : -1;
+      const tvRotY = tvOnLeft ? Math.PI / 2 : -Math.PI / 2;
+
+      const consoleW = tvW * 1.24;
+      const consoleD = 0.25;
+      const drawerH = 0.16;
+      const cubbyH = 0.13;
+      const boardT = 0.022;
+      const consoleBaseY = Math.max(0.42, H * 0.17);
+
+      const consoleGroup = new THREE.Group();
+      consoleGroup.position.set(wallInnerX + inwardDir * (consoleD / 2), consoleBaseY, tvZ);
+      consoleGroup.rotation.y = tvRotY;
+
+      const glossyWhiteMat = new THREE.MeshStandardMaterial({ color: 0xeae8e3, roughness: 0.22, metalness: 0.06 });
+      const oakWoodMat = new THREE.MeshStandardMaterial({ color: 0xb87646, roughness: 0.52 });
+      const darkGapMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+
+      const doorW = (consoleW - 0.016) / 3;
+      [-1, 0, 1].forEach(idx => {
+        const door = new THREE.Mesh(new THREE.BoxGeometry(doorW, drawerH, consoleD), glossyWhiteMat);
+        door.position.set(idx * (doorW + 0.008), drawerH / 2, 0);
+        door.castShadow = true; door.receiveShadow = true;
+        consoleGroup.add(door);
+      });
+
+      const midShelf = new THREE.Mesh(new THREE.BoxGeometry(consoleW, boardT, consoleD), oakWoodMat);
+      midShelf.position.set(0, drawerH + boardT / 2, 0);
+      consoleGroup.add(midShelf);
+
+      const topShelf = new THREE.Mesh(new THREE.BoxGeometry(consoleW * 0.96, boardT, consoleD * 0.94), oakWoodMat);
+      topShelf.position.set(-consoleW * 0.02, drawerH + boardT + cubbyH + boardT / 2, -0.006);
+      topShelf.castShadow = true;
+      consoleGroup.add(topShelf);
+
+      const backBoard = new THREE.Mesh(new THREE.BoxGeometry(consoleW, cubbyH + 0.05, 0.016), oakWoodMat);
+      backBoard.position.set(0, drawerH + boardT + cubbyH / 2 + 0.02, -consoleD / 2 + 0.008);
+      consoleGroup.add(backBoard);
+
+      [-doorW / 2, doorW / 2].forEach(px => {
+        const divider = new THREE.Mesh(new THREE.BoxGeometry(boardT, cubbyH, consoleD * 0.9), oakWoodMat);
+        divider.position.set(px, drawerH + boardT + cubbyH / 2, 0);
+        consoleGroup.add(divider);
+      });
+
+      const mediaBox = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.72, 0.036, consoleD * 0.65), darkGapMat);
+      mediaBox.position.set(-doorW, drawerH + boardT + 0.018, 0.01);
+      const songBooks = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.68, 0.042, consoleD * 0.62), glossyWhiteMat);
+      songBooks.position.set(doorW, drawerH + boardT + 0.021, 0.01);
+      consoleGroup.add(mediaBox, songBooks);
+      roomGroup.add(consoleGroup);
+
+      const consoleTopY = consoleBaseY + drawerH + boardT * 2 + cubbyH;
+      const tvX = wallInnerX + inwardDir * 0.045;
+      const tvY = consoleTopY + 0.06 + tvH / 2;
+
+      const tvFrameGroup = new THREE.Group();
+      tvFrameGroup.position.set(tvX, tvY, tvZ);
+      tvFrameGroup.rotation.y = tvRotY;
+
+      const silverBezelMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.75, roughness: 0.22 });
+      const darkStandMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.3 });
+      const borderT = 0.024, frameDepth = 0.036;
+
+      const topBar = new THREE.Mesh(new THREE.BoxGeometry(tvW + borderT * 2, borderT, frameDepth), silverBezelMat);
+      topBar.position.set(0, tvH / 2 + borderT / 2, 0);
+      const botBar = new THREE.Mesh(new THREE.BoxGeometry(tvW + borderT * 2, borderT + 0.008, frameDepth), silverBezelMat);
+      botBar.position.set(0, -tvH / 2 - (borderT + 0.008) / 2, 0);
+      const leftBar = new THREE.Mesh(new THREE.BoxGeometry(borderT, tvH, frameDepth), silverBezelMat);
+      leftBar.position.set(-tvW / 2 - borderT / 2, 0, 0);
+      const rightBar = new THREE.Mesh(new THREE.BoxGeometry(borderT, tvH, frameDepth), silverBezelMat);
+      rightBar.position.set(tvW / 2 + borderT / 2, 0, 0);
+
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.055, 0.03), darkStandMat);
+      neck.position.set(0, -tvH / 2 - 0.035, 0);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(tvW * 0.38, 0.014, 0.14), darkStandMat);
+      foot.position.set(0, -tvH / 2 - 0.058, 0.02);
+
+      const cutoutPlane = new THREE.Mesh(new THREE.PlaneGeometry(tvW, tvH), alphaCutoutMaterial);
+      cutoutPlane.position.set(0, 0, 0.002);
+      cutoutPlane.renderOrder = 9999;
+
+      tvFrameGroup.add(topBar, botBar, leftBar, rightBar, neck, foot, cutoutPlane);
+      roomGroup.add(tvFrameGroup);
+
+      tvHitbox = new THREE.Mesh(
+        new THREE.BoxGeometry(tvW, tvH, 0.12),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      tvHitbox.position.set(tvX, tvY, tvZ);
+      tvHitbox.rotation.y = tvRotY;
+      roomGroup.add(tvHitbox);
+
+      tvAnchor3D.set(tvX, tvY + tvH * 0.62, tvZ);
+      setupCss3dTv(tvX - inwardDir * 0.012, tvY, tvZ, tvRotY, tvW, tvH);
+
+      // Cặp loa MK Acoustic đặt vuông góc, cân đối 2 bên trên Tivi
+      const spkScale = Math.max(0.82, S * 0.175);
+      const spkY = Math.min(H - 0.22, tvY + tvH / 2 + 0.22);
+      const bracketMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3 });
+
+      [-tvW * 0.42, tvW * 0.42].forEach((offsetZ) => {
+        const mkSpeaker = createMKAcousticSpeaker(spkScale);
+        const spkX = wallInnerX + inwardDir * (0.18 * spkScale);
+        const spkZ = tvZ + offsetZ;
+        mkSpeaker.position.set(spkX, spkY, spkZ);
+        mkSpeaker.rotation.order = 'YXZ';
+        mkSpeaker.rotation.set(0, tvRotY, 0);
+        roomGroup.add(mkSpeaker);
+
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16 * spkScale, 0.03, 0.03), bracketMat);
+        arm.position.set(wallInnerX + inwardDir * (0.08 * spkScale), spkY, spkZ);
+        roomGroup.add(arm);
+      });
+    }
+
+    /* =========================================================================
+       10. DỰNG MÔ HÌNH PHÒNG 3D TOP-DOWN DIORAMA
+       ========================================================================= */
+    function placeCabinetSennheiserMics(x, yTop, z, yaw = 0) {
+      const pairGroup = new THREE.Group();
+      pairGroup.position.set(x, yTop, z);
+      pairGroup.rotation.y = yaw;
+
+      const tray = new THREE.Mesh(
+        new THREE.BoxGeometry(0.28, 0.016, 0.34),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.4 })
+      );
+      tray.position.y = 0.008;
+      pairGroup.add(tray);
+
+      [-0.075, 0.075].forEach((offsetX, idx) => {
+        const mic = createSennheiserE945(1.65);
+        mic.rotation.x = Math.PI / 2;
+        mic.rotation.z = idx === 0 ? -0.14 : 0.14;
+        mic.position.set(offsetX, 0.062, -0.15);
+        pairGroup.add(mic);
+      });
+
+      roomGroup.add(pairGroup);
+    }
+
+    function buildDioramaRoom(key, forceCameraReset = false) {
+      if (builtRoomKey === key && !forceCameraReset) return;
+      builtRoomKey = key;
+
+      const cfg = ROOM_CONFIGS[key];
+      const S = cfg.size, H = cfg.height, half = S / 2;
+      const wallThick = 0.22, lowWallH = 0.42;
+
+      while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
+      while (seatsGroup.children.length) seatsGroup.remove(seatsGroup.children[0]);
+      discoSpots = []; seatSlots = []; seatHitboxes = [];
+
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(S + wallThick * 2, 0.26, S + wallThick * 2),
+        new THREE.MeshStandardMaterial({ color: 0x161926, roughness: 0.5 })
+      );
+      slab.position.y = -0.13; slab.receiveShadow = true;
+      roomGroup.add(slab);
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(S, S),
+        new THREE.MeshStandardMaterial({ color: cfg.floorColor, roughness: key === 'rich' ? 0.38 : 0.86 })
+      );
+      floor.rotation.x = -Math.PI / 2; floor.position.y = 0.005; floor.receiveShadow = true;
+      roomGroup.add(floor);
+
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x1e1b4b, key === 'rich' ? 1.1 : 0.96);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.25);
+      dirLight.position.set(key === 'rich' ? S * 0.7 : -S * 0.7, S * 1.4, S * 0.8);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.set(1024, 1024);
+      dirLight.shadow.camera.near = 0.5 * WORLD_SCALE;
+      dirLight.shadow.camera.far = S * 3.5 * WORLD_SCALE;
+      const d = S * 0.75 * WORLD_SCALE;
+      dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
+      roomGroup.add(hemi, dirLight);
+
+      const wallMat = new THREE.MeshStandardMaterial({ color: cfg.wallColor, roughness: 0.68 });
+      const cutCapMat = new THREE.MeshStandardMaterial({ color: cfg.trimColor, roughness: 0.5 });
+
+      const backWall = new THREE.Mesh(new THREE.BoxGeometry(S + wallThick * 2, H, wallThick), wallMat);
+      backWall.position.set(0, H / 2, -half - wallThick / 2); backWall.receiveShadow = true;
+      roomGroup.add(backWall);
+
+      const frontWall = new THREE.Mesh(new THREE.BoxGeometry(S + wallThick * 2, lowWallH, wallThick), cutCapMat);
+      frontWall.position.set(0, lowWallH / 2, half + wallThick / 2);
+      roomGroup.add(frontWall);
+
+      const tvOnLeft = cfg.tvSide === 'left';
+      const leftH = tvOnLeft ? H : lowWallH;
+      const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, leftH, S), tvOnLeft ? wallMat : cutCapMat);
+      leftWall.position.set(-half - wallThick / 2, leftH / 2, 0); leftWall.receiveShadow = true;
+
+      const rightH = tvOnLeft ? lowWallH : H;
+      const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, rightH, S), tvOnLeft ? cutCapMat : wallMat);
+      rightWall.position.set(half + wallThick / 2, rightH / 2, 0); rightWall.receiveShadow = true;
+      roomGroup.add(leftWall, rightWall);
+
+      const neonPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(S * 0.24, S * 0.24),
+        new THREE.MeshBasicMaterial({ map: createNeonTexture(cfg.neonType), transparent: true })
+      );
+      neonPlane.position.set(0, H * 0.72, -half + 0.02);
+      roomGroup.add(neonPlane);
+
+      const tabW = Math.max(0.82, S * 0.14);
+      const tabH = tabW * 0.62;
+      const tabX = key === 'rich' ? -half + 1.4 : 0;
+      const tabY = key === 'rich' ? 1.35 : H * 0.36;
+      const tabZ = -half + 0.03;
+
+      const tabletFrame = new THREE.Mesh(
+        new THREE.BoxGeometry(tabW + 0.08, tabH + 0.08, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 })
+      );
+      tabletFrame.position.set(tabX, tabY, tabZ);
+
+      const tabletScreen = new THREE.Mesh(
+        new THREE.PlaneGeometry(tabW, tabH),
+        new THREE.MeshBasicMaterial({ map: createControlTabletTexture() })
+      );
+      tabletScreen.position.set(tabX, tabY, tabZ + 0.03);
+      roomGroup.add(tabletFrame, tabletScreen);
+
+      tabletHitbox = new THREE.Mesh(
+        new THREE.BoxGeometry(tabW + 0.35, tabH + 0.35, 0.28),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      tabletHitbox.position.set(tabX, tabY, tabZ + 0.08);
+      roomGroup.add(tabletHitbox);
+      tabletAnchor3D.set(tabX, tabY + tabH * 0.65, tabZ + 0.1);
+
+      if (key === 'small') {
+        const { doubleSofa, ottoman } = createSmallBoxTealSofaSet();
+        doubleSofa.position.set(-half + 0.56, 0, -0.22);
+        doubleSofa.rotation.y = Math.PI / 2;
+        roomGroup.add(doubleSofa);
+
+        addSeatSlot(0, new THREE.Vector3(-half + 0.62, 0.43, -0.64), Math.PI / 2, 'Sofa đôi 1');
+        addSeatSlot(1, new THREE.Vector3(-half + 0.62, 0.43,  0.20), Math.PI / 2, 'Sofa đôi 2');
+
+        ottoman.position.set(-half + 0.72, 0, 1.15);
+        ottoman.rotation.y = Math.PI / 2 + 0.22;
+        roomGroup.add(ottoman);
+        addSeatSlot(2, new THREE.Vector3(-half + 0.72, 0.43, 1.15), Math.PI / 2 + 0.22, 'Đôn sofa 3');
+
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.68, 0.56), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+        cab.position.set(half - 0.28, 0.34, -half + 0.36); cab.castShadow = true;
+        roomGroup.add(cab);
+        placeCabinetSennheiserMics(half - 0.28, 0.68, -half + 0.36, -0.4);
+
+      } else if (key === 'medium') {
+        const sofa1 = createMediumBoxModernBlueSofa(2.55);
+        sofa1.position.set(-half + 0.68, 0, -1.35);
+        sofa1.rotation.y = Math.PI / 2;
+
+        const sofa2 = createMediumBoxModernBlueSofa(2.55);
+        sofa2.position.set(-half + 0.68, 0, 1.45);
+        sofa2.rotation.y = Math.PI / 2;
+
+        roomGroup.add(sofa1, sofa2);
+
+        for (let i = 0; i < 3; i++) {
+          addSeatSlot(i, new THREE.Vector3(-half + 0.74, 0.40, -2.10 + i * 0.75), Math.PI / 2, `Sofa A${i + 1}`);
+        }
+        for (let i = 0; i < 3; i++) {
+          addSeatSlot(3 + i, new THREE.Vector3(-half + 0.74, 0.40, 0.70 + i * 0.75), Math.PI / 2, `Sofa B${i + 1}`);
+        }
+
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.78, 0.85), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+        cab.position.set(half - 0.38, 0.39, -half + 0.55); cab.castShadow = true;
+        roomGroup.add(cab);
+        placeCabinetSennheiserMics(half - 0.38, 0.78, -half + 0.55, -0.45);
+
+      } else {
+        const lSofa = createRichBoxLSectionalSofa();
+        lSofa.position.set(1.65, 0, -half + 0.92);
+        roomGroup.add(lSofa);
+
+        const rugMural = new THREE.Mesh(
+          new THREE.PlaneGeometry(4.4, 1.55),
+          new THREE.MeshBasicMaterial({ map: createMusicMuralTexture(), transparent: true })
+        );
+        rugMural.rotation.x = -Math.PI / 2;
+        rugMural.position.set(0.3, 0.015, 1.35);
+        roomGroup.add(rugMural);
+
+        const whiteCab = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.88, 1.3), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 }));
+        whiteCab.position.set(-half + 0.44, 0.44, -half + 0.85); whiteCab.castShadow = true;
+        placeCabinetSennheiserMics(-half + 0.44, 0.88, -half + 0.85, 0.45);
+        roomGroup.add(whiteCab);
+
+        for (let i = 0; i < 7; i++) {
+          addSeatSlot(i, new THREE.Vector3(-0.65 + i * 0.74, 0.40, -half + 1.02), 0, `Sofa L${i + 1}`);
+        }
+        for (let i = 0; i < 3; i++) {
+          addSeatSlot(7 + i, new THREE.Vector3(1.65 + 5.6 / 2 - 1.45 / 2 - 0.28, 0.40, -half + 1.85 + i * 0.72), -Math.PI / 2, `Góc nghỉ ${i + 1}`);
+        }
+      }
+
+      buildTadaTvConsoleAndScreen(tvOnLeft, half, H, S);
+
+      const spotCount = key === 'rich' ? 34 : 20;
+      for (let i = 0; i < spotCount; i++) {
+        const spot = new THREE.Mesh(
+          new THREE.PlaneGeometry(S * 0.05, S * 0.05),
+          new THREE.MeshBasicMaterial({
+            map: discoSpotTex, color: cfg.discoColors[i % cfg.discoColors.length],
+            transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending, depthWrite: false
+          })
+        );
+        const w = i % 3;
+        if (w === 0) spot.position.set((Math.random() - 0.5) * (S - 0.6), 0.4 + Math.random() * (H - 0.8), -half + 0.03);
+        else if (w === 1) {
+          spot.rotation.y = tvOnLeft ? Math.PI / 2 : -Math.PI / 2;
+          spot.position.set(tvOnLeft ? -half + 0.03 : half - 0.03, 0.4 + Math.random() * (H - 0.8), (Math.random() - 0.5) * (S - 0.6));
+        } else {
+          spot.rotation.x = -Math.PI / 2;
+          spot.position.set((Math.random() - 0.5) * (S - 0.8), 0.02, (Math.random() - 0.5) * (S - 0.8));
+        }
+        spot.userData.phase = Math.random() * Math.PI * 2;
+        discoSpots.push(spot);
+        roomGroup.add(spot);
+      }
+
+      resetTopDownCamera(key);
+    }
+
+    function addSeatSlot(index, pos, rotY, label) {
+      seatSlots.push({ index, pos, rotY, label });
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.16, 0.22, 24),
+        new THREE.MeshBasicMaterial({ color: 0xf472b6, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(pos.x, pos.y + 0.015, pos.z);
+      ring.userData.seatIndex = index;
+      seatsGroup.add(ring);
+
+      const hit = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.32, 0.32, 0.3, 12),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.set(pos.x, pos.y + 0.15, pos.z);
+      hit.userData.seatIndex = index;
+      seatHitboxes.push(hit);
+      seatsGroup.add(hit);
+    }
+
+    function resetTopDownCamera(key) {
+      const cfg = ROOM_CONFIGS[key];
+      const S = cfg.size;
+      const tvOnLeft = cfg.tvSide === 'left';
+      camera.position.set(
+        (tvOnLeft ? S * 0.92 : -S * 0.92) * WORLD_SCALE,
+        (S * 1.18) * WORLD_SCALE,
+        (S * 0.96) * WORLD_SCALE
+      );
+      controls.target.set(0, (cfg.height * 0.28) * WORLD_SCALE, -0.15 * WORLD_SCALE);
+      controls.maxDistance = S * 2.4 * WORLD_SCALE;
+      controls.minDistance = 0.28 * WORLD_SCALE;
+      controls.update();
+    }
+
+    /* =========================================================================
+       11. NHÂN VẬT CON NGƯỜI + ANIMATION CÁ NHÂN
+       ========================================================================= */
+    function createSeatedHuman(player, slot, isMe) {
+      const root = new THREE.Group();
+      root.position.copy(slot.pos);
+      root.rotation.y = slot.rotY;
+
+      const skinMat = new THREE.MeshStandardMaterial({ color: player.skinTone, roughness: 0.55 });
+      const shirtMat = new THREE.MeshStandardMaterial({ color: player.shirtColor, roughness: 0.45 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: player.hairColor, roughness: 0.65 });
+      const shoeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+
+      const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.2), pantsMat);
+      pelvis.position.y = 0.07; pelvis.castShadow = true;
+
+      const upperBody = new THREE.Group();
+      upperBody.position.y = 0.14;
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.38, 0.18), shirtMat);
+      torso.position.y = 0.18; torso.castShadow = true;
+
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.08, 12), skinMat);
+      neck.position.y = 0.39;
+
+      const headGroup = new THREE.Group();
+      headGroup.position.y = 0.54;
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.145, 20, 20), skinMat);
+      head.scale.set(0.95, 1.05, 0.98); head.castShadow = true;
+
+      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.153, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.58), hairMat);
+      hair.rotation.x = -0.22; hair.position.set(0, 0.02, -0.015);
+
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), eyeMat);
+      eyeL.position.set(-0.052, 0.01, 0.135);
+      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), eyeMat);
+      eyeR.position.set(0.052, 0.01, 0.135);
+
+      headGroup.add(head, hair, eyeL, eyeR);
+
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.19, 0.32, 0);
+      const lUpper = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.18, 6, 10), shirtMat);
+      lUpper.position.set(0, -0.1, 0.04); lUpper.rotation.x = -0.35;
+      const lHand = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), skinMat);
+      lHand.position.set(0.03, -0.22, 0.14);
+      leftArm.add(lUpper, lHand);
+
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.19, 0.32, 0);
+
+      if (player.hasMic) {
+        const rUpper = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.17, 6, 10), shirtMat);
+        rUpper.position.set(0, -0.06, 0.08); rUpper.rotation.x = -0.95;
+
+        const rHand = new THREE.Mesh(new THREE.SphereGeometry(0.044, 10, 10), skinMat);
+        rHand.position.set(-0.06, 0.04, 0.22);
+
+        const sennheiserMic = createSennheiserE945(1.25);
+        sennheiserMic.position.set(-0.06, -0.02, 0.20);
+        sennheiserMic.rotation.x = -0.42; sennheiserMic.rotation.y = 0.35;
+
+        rightArm.add(rUpper, rHand, sennheiserMic);
+      } else {
+        const rUpper = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.18, 6, 10), shirtMat);
+        rUpper.position.set(0, -0.1, 0.04); rUpper.rotation.x = -0.35;
+        const rHand = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), skinMat);
+        rHand.position.set(-0.03, -0.22, 0.14);
+        rightArm.add(rUpper, rHand);
+      }
+
+      upperBody.add(torso, neck, headGroup, leftArm, rightArm);
+
+      const legs = [];
+      [-0.085, 0.085].forEach(offsetX => {
+        const legGroup = new THREE.Group();
+        legGroup.position.set(offsetX, 0.07, 0.06);
+        const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.22, 6, 12), pantsMat);
+        thigh.rotation.x = Math.PI / 2; thigh.position.set(0, 0, 0.14); thigh.castShadow = true;
+        const calf = new THREE.Mesh(new THREE.CapsuleGeometry(0.048, 0.26, 6, 12), pantsMat);
+        calf.position.set(0, -0.17, 0.26); calf.castShadow = true;
+        const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.065, 0.16), shoeMat);
+        shoe.position.set(0, -0.32, 0.29);
+        legGroup.add(thigh, calf, shoe);
+        root.add(legGroup);
+        legs.push(legGroup);
+      });
+
+      const badge = createNameBadge(isMe ? `${player.name} (Bạn)` : player.name, player.hasMic, isMe);
+      badge.position.y = 1.02;
+
+      root.add(pelvis, upperBody, badge);
+
+      const hit = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.95, 12),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.y = 0.45;
+      hit.userData.playerId = player.id;
+      root.add(hit);
+      charHitboxes.push(hit);
+
+      animatedChars.push({
+        playerId: player.id,
+        root,
+        upperBody,
+        headGroup,
+        leftArm,
+        rightArm,
+        legs,
+        hasMic: player.hasMic,
+        phase: slot.index * 1.15
+      });
+      return root;
+    }
+
+    /* =========================================================================
+       12. TRÌNH PHÁT YOUTUBE IFRAME API (TỰ PHÁT, TỰ MỞ TIẾNG & KHỚP MỐC GIÂY)
+       ========================================================================= */
+    let ytPlayerInstance = null;
+    let ytPlayerReady = false;
+    let ytApiLoadPromise = null;
+    let tvIframeEl = null;
+    let tvLocalVideoEl = null;
+    let currentLoadedVid = null;
+    let currentLocalUrl = null;
+    let lastSeekNonce = -1;
+    let autoAdvanceLockVid = null;
+    let userGestureUnlocked = false;
+
+    function getCurrentLiveTvSecond() {
+      if (tvLocalVideoEl && tvLocalVideoEl.style.display !== 'none' && Number.isFinite(tvLocalVideoEl.currentTime)) {
+        return Number(tvLocalVideoEl.currentTime.toFixed(2));
+      }
+      if (ytPlayerInstance && ytPlayerReady && typeof ytPlayerInstance.getCurrentTime === 'function') {
+        try {
+          const t = Number(ytPlayerInstance.getCurrentTime());
+          if (Number.isFinite(t) && t > 0) return Number(t.toFixed(2));
+        } catch {}
+      }
+      if (roomState && roomState.tv) {
+        return getTargetSyncedSecond(roomState.tv);
+      }
+      return 0;
+    }
+
+    function seekPlayerSafely(targetSec) {
+      const sec = Math.max(0, Number(targetSec || 0));
+      if (ytPlayerInstance && ytPlayerReady) {
+        try {
+          const dur = typeof ytPlayerInstance.getDuration === 'function' ? Number(ytPlayerInstance.getDuration()) : 0;
+          if (!dur || sec < dur - 1.5) {
+            ytPlayerInstance.seekTo(sec, true);
+          }
+        } catch {}
+      } else if (tvIframeEl && tvIframeEl.contentWindow) {
+        tvIframeEl.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
+          '*'
+        );
+      }
+    }
+
+    function ensureYouTubeIframeApi() {
+      if (window.YT && window.YT.Player) return Promise.resolve(true);
+      if (ytApiLoadPromise) return ytApiLoadPromise;
+
+      ytApiLoadPromise = new Promise((resolve) => {
+        const prevReady = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = () => {
+          if (typeof prevReady === 'function') prevReady();
+          resolve(true);
+        };
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.onerror = () => resolve(false);
+        document.head.appendChild(tag);
+        setTimeout(() => resolve(Boolean(window.YT && window.YT.Player)), 4500);
+      });
+      return ytApiLoadPromise;
+    }
+
+    function tryUnmuteTvAndPlay() {
+      const vol = parseInt(document.getElementById('tv-volume-slider').value, 10);
+      if (tvLocalVideoEl && tvLocalVideoEl.style.display !== 'none') {
+        tvLocalVideoEl.muted = false;
+        tvLocalVideoEl.volume = vol / 100;
+        tvLocalVideoEl.play().catch(() => {});
+        document.getElementById('btn-unlock-tv-sound').style.display = 'none';
+        return;
+      }
+
+      if (ytPlayerInstance && ytPlayerReady) {
+        try {
+          ytPlayerInstance.unMute();
+          ytPlayerInstance.setVolume(vol);
+          if (!roomState || !roomState.tv || roomState.tv.isPlaying !== false) {
+            ytPlayerInstance.playVideo();
+          }
+          document.getElementById('btn-unlock-tv-sound').style.display = 'none';
+        } catch {}
+      } else if (tvIframeEl && tvIframeEl.contentWindow) {
+        tvIframeEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        tvIframeEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [vol] }), '*');
+        if (!roomState || !roomState.tv || roomState.tv.isPlaying !== false) {
+          tvIframeEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+        }
+        document.getElementById('btn-unlock-tv-sound').style.display = 'none';
+      }
+    }
+
+    function onUserGestureUnlock() {
+      userGestureUnlocked = true;
+      unlockAllRemoteAudios();
+      if (roomState) tryUnmuteTvAndPlay();
+    }
+    window.addEventListener('pointerup', onUserGestureUnlock, { passive: true });
+    window.addEventListener('touchend', onUserGestureUnlock, { passive: true });
+
+    document.getElementById('btn-unlock-tv-sound').addEventListener('click', tryUnmuteTvAndPlay);
+
+    function handleVideoEndedAutoNext() {
+      if (!roomState || !roomState.queue || roomState.queue.length === 0) return;
+      const endedVid = roomState.tv ? roomState.tv.videoId : null;
+      if (!endedVid || autoAdvanceLockVid === endedVid) return;
+
+      if (isRoomHost) {
+        autoAdvanceLockVid = endedVid;
+        playNextSongInQueue();
+      } else {
+        setTimeout(() => {
+          if (roomState && roomState.tv && roomState.tv.videoId === endedVid && roomState.queue && roomState.queue.length > 0) {
+            autoAdvanceLockVid = endedVid;
+            playNextSongInQueue();
+          }
+        }, 700);
+      }
+    }
+
+    function buildFallbackEmbedUrl(videoId, startSec = 0) {
+      const start = Math.max(0, Math.floor(startSec || 0));
+      const originParam = window.location.protocol.startsWith('http') ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&controls=1&start=${start}${originParam}`;
+    }
+
+    async function setupCss3dTv(x, y, z, rotY, widthM, heightM) {
+      tvCssParams = { x, y, z, rotY, widthM, heightM };
+      while (cssScene.children.length) cssScene.remove(cssScene.children[0]);
+      if (ytPlayerInstance) {
+        try { ytPlayerInstance.destroy(); } catch {}
+        ytPlayerInstance = null;
+        ytPlayerReady = false;
+      }
+
+      const pxW = 640, pxH = 360;
+      const wrapper = document.createElement('div');
+      wrapper.style.width = `${pxW}px`;
+      wrapper.style.height = `${pxH}px`;
+      wrapper.style.background = '#090d16';
+      wrapper.style.overflow = 'hidden';
+      wrapper.style.position = 'relative';
+
+      const initialTv = (roomState && roomState.tv) || { videoId: 'jfKfPfyJRdk', seekAt: 0, isPlaying: true };
+      const initialVid = initialTv.videoId || 'jfKfPfyJRdk';
+      const initialStart = getTargetSyncedSecond(initialTv);
+      currentLoadedVid = initialVid;
+
+      const playerHost = document.createElement('div');
+      playerHost.id = 'yt-player-host';
+      playerHost.style.width = '100%';
+      playerHost.style.height = '100%';
+      wrapper.appendChild(playerHost);
+
+      const localVid = document.createElement('video');
+      localVid.id = 'local-tv-video';
+      localVid.controls = true;
+      localVid.playsInline = true;
+      localVid.style.width = '100%';
+      localVid.style.height = '100%';
+      localVid.style.objectFit = 'contain';
+      localVid.style.background = '#000';
+      localVid.style.display = 'none';
+      localVid.addEventListener('ended', () => {
+        if (roomState && roomState.queue && roomState.queue.length > 0) {
+          playNextSongInQueue();
+        }
+      });
+      wrapper.appendChild(localVid);
+      tvLocalVideoEl = localVid;
+
+      const cssObj = new CSS3DObject(wrapper);
+      cssObj.position.set(x * WORLD_SCALE, y * WORLD_SCALE, z * WORLD_SCALE);
+      cssObj.rotation.y = rotY;
+      const sc = (widthM * WORLD_SCALE) / pxW;
+      cssObj.scale.set(sc, sc, sc);
+      cssScene.add(cssObj);
+
+      const apiLoaded = await ensureYouTubeIframeApi();
+      if (apiLoaded && window.YT && window.YT.Player) {
+        const playerVars = {
+          autoplay: 1,
+          mute: 1,
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          controls: 1,
+          start: Math.max(0, Math.floor(initialStart))
+        };
+        if (window.location.protocol.startsWith('http')) {
+          playerVars.origin = window.location.origin;
+        }
+
+        ytPlayerInstance = new window.YT.Player('yt-player-host', {
+          width: String(pxW),
+          height: String(pxH),
+          videoId: initialVid,
+          playerVars,
+          events: {
+            onReady: (ev) => {
+              ytPlayerReady = true;
+              tvIframeEl = ev.target.getIframe();
+              const latestTv = (roomState && roomState.tv) || { videoId: initialVid, isPlaying: true, seekAt: initialStart };
+              const targetSec = getTargetSyncedSecond(latestTv);
+
+              if (latestTv.videoId && latestTv.videoId !== initialVid) {
+                currentLoadedVid = latestTv.videoId;
+                ev.target.loadVideoById({ videoId: latestTv.videoId, startSeconds: targetSec });
+              } else if (targetSec > 1) {
+                seekPlayerSafely(targetSec);
+              }
+
+              ev.target.mute();
+              if (latestTv.isPlaying !== false) {
+                ev.target.playVideo();
+              } else {
+                ev.target.pauseVideo();
+              }
+
+              if (userGestureUnlocked) {
+                setTimeout(() => tryUnmuteTvAndPlay(), 150);
+              } else {
+                document.getElementById('btn-unlock-tv-sound').style.display = 'inline-flex';
+              }
+            },
+            onStateChange: (ev) => {
+              if (ev.data === window.YT.PlayerState.ENDED) {
+                handleVideoEndedAutoNext();
+              } else if (ev.data === window.YT.PlayerState.PLAYING) {
+                // Khớp chính xác mốc giây ngay khi luồng video bắt đầu chạy trên người mới vào phòng
+                if (needsInitialSeekSync && roomState && roomState.tv && !roomState.tv.localVideoUrl) {
+                  needsInitialSeekSync = false;
+                  const targetSec = getTargetSyncedSecond(roomState.tv);
+                  const curSec = typeof ev.target.getCurrentTime === 'function' ? Number(ev.target.getCurrentTime()) : 0;
+                  if (Math.abs(curSec - targetSec) > 1.5) {
+                    seekPlayerSafely(targetSec);
+                  }
+                }
+
+                if (ev.target.isMuted()) {
+                  document.getElementById('btn-unlock-tv-sound').style.display = 'inline-flex';
+                  if (userGestureUnlocked) {
+                    const vol = parseInt(document.getElementById('tv-volume-slider').value, 10);
+                    ev.target.unMute();
+                    ev.target.setVolume(vol);
+                    setTimeout(() => {
+                      if (ytPlayerInstance && ytPlayerReady && ytPlayerInstance.getPlayerState() === window.YT.PlayerState.PAUSED && (!roomState || !roomState.tv || roomState.tv.isPlaying !== false)) {
+                        ytPlayerInstance.mute();
+                        ytPlayerInstance.playVideo();
+                        document.getElementById('btn-unlock-tv-sound').style.display = 'inline-flex';
+                      } else if (ytPlayerInstance && !ytPlayerInstance.isMuted()) {
+                        document.getElementById('btn-unlock-tv-sound').style.display = 'none';
+                      }
+                    }, 300);
+                  }
+                } else {
+                  document.getElementById('btn-unlock-tv-sound').style.display = 'none';
+                }
+              }
+            }
+          }
+        });
+      } else {
+        const iframe = document.createElement('iframe');
+        iframe.id = 'yt-tv-iframe';
+        iframe.width = String(pxW);
+        iframe.height = String(pxH);
+        iframe.src = buildFallbackEmbedUrl(initialVid, initialStart);
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        iframe.style.border = '0';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.display = 'block';
+        playerHost.appendChild(iframe);
+        tvIframeEl = iframe;
+        document.getElementById('btn-unlock-tv-sound').style.display = 'inline-flex';
+      }
+    }
+
+    function syncTvPlayerWithState(tv) {
+      if (!tv) return;
+      document.getElementById('tv-now-title').textContent = `Đang phát: ${tv.title || 'Karaoke YouTube'}`;
+      const vol = parseInt(document.getElementById('tv-volume-slider').value, 10);
+
+      if (tv.localVideoUrl && tvLocalVideoEl) {
+        const hostEl = document.getElementById('yt-player-host');
+        if (hostEl) hostEl.style.display = 'none';
+        tvLocalVideoEl.style.display = 'block';
+        if (currentLocalUrl !== tv.localVideoUrl) {
+          currentLocalUrl = tv.localVideoUrl;
+          tvLocalVideoEl.src = tv.localVideoUrl;
+          tvLocalVideoEl.volume = vol / 100;
+          tvLocalVideoEl.play().catch(() => {});
+        }
+        if (tv.isPlaying) tvLocalVideoEl.play().catch(() => {});
+        else tvLocalVideoEl.pause();
+        updateTvRemoteButtonLabel();
+        return;
+      }
+
+      const hostEl = document.getElementById('yt-player-host');
+      if (tvLocalVideoEl && hostEl) {
+        tvLocalVideoEl.pause();
+        tvLocalVideoEl.style.display = 'none';
+        hostEl.style.display = 'block';
+      }
+
+      const targetSec = getTargetSyncedSecond(tv);
+
+      if (ytPlayerInstance && ytPlayerReady) {
+        if (currentLoadedVid !== tv.videoId) {
+          currentLoadedVid = tv.videoId;
+          lastSeekNonce = tv.seekNonce || 0;
+          autoAdvanceLockVid = null;
+          ytPlayerInstance.loadVideoById({
+            videoId: tv.videoId,
+            startSeconds: targetSec
+          });
+          if (userGestureUnlocked) {
+            ytPlayerInstance.unMute();
+            ytPlayerInstance.setVolume(vol);
+          }
+        } else if (typeof tv.seekNonce === 'number' && lastSeekNonce !== tv.seekNonce) {
+          lastSeekNonce = tv.seekNonce;
+          seekPlayerSafely(targetSec);
+        } else if (needsInitialSeekSync) {
+          const curSec = typeof ytPlayerInstance.getCurrentTime === 'function' ? Number(ytPlayerInstance.getCurrentTime()) : 0;
+          if (Math.abs(curSec - targetSec) > 1.5) {
+            seekPlayerSafely(targetSec);
+          }
+          if (ytPlayerInstance.getPlayerState && ytPlayerInstance.getPlayerState() === window.YT.PlayerState.PLAYING) {
+            needsInitialSeekSync = false;
+          }
+        }
+
+        if (tv.isPlaying !== false) ytPlayerInstance.playVideo();
+        else ytPlayerInstance.pauseVideo();
+      } else if (tvIframeEl) {
+        if (currentLoadedVid !== tv.videoId) {
+          currentLoadedVid = tv.videoId;
+          lastSeekNonce = tv.seekNonce || 0;
+          autoAdvanceLockVid = null;
+          tvIframeEl.src = buildFallbackEmbedUrl(tv.videoId, targetSec);
+        } else if ((typeof tv.seekNonce === 'number' && lastSeekNonce !== tv.seekNonce) || needsInitialSeekSync) {
+          lastSeekNonce = tv.seekNonce || lastSeekNonce;
+          needsInitialSeekSync = false;
+          seekPlayerSafely(targetSec);
+        }
+        const cmd = tv.isPlaying !== false ? 'playVideo' : 'pauseVideo';
+        tvIframeEl.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: cmd, args: [] }), '*');
+      }
+
+      updateTvRemoteButtonLabel();
+    }
+
+    function updateTvRemoteButtonLabel() {
+      const btn = document.getElementById('btn-tv-playpause');
+      const isPlaying = roomState && roomState.tv ? roomState.tv.isPlaying : true;
+      btn.textContent = isPlaying ? '⏸ Tạm dừng' : '▶️ Phát tiếp';
+      btn.className = isPlaying ? 'btn blue' : 'btn green';
+    }
+
+    /* =========================================================================
+       13. TÌM KIẾM TÊN BÀI HÁT KARAOKE TRỰC TIẾP TRONG BẢNG CHỌN BÀI
+       ========================================================================= */
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    function stripVietnameseTones(str) {
+      return String(str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase();
+    }
+
+    function formatDurationSec(sec) {
+      const s = Number(sec);
+      if (!Number.isFinite(s) || s <= 0) return '';
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = Math.floor(s % 60);
+      if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+      return `${m}:${String(r).padStart(2, '0')}`;
+    }
+
+    const BUILTIN_KARAOKE_SUGGESTIONS = [
+      { videoId: 'jfKfPfyJRdk', title: 'Lofi Hip Hop Radio - Nhạc Chill Thư Giãn', author: 'Lofi Girl', duration: 'LIVE' },
+      { videoId: 'DWcJFNfaw9c', title: 'Acoustic Chill Beats - Nhạc Chờ Phòng Hát', author: 'Chillhop Music', duration: 'LIVE' },
+      { videoId: 'rUxyKA_-grg', title: 'Piano Relaxing - Giai Điệu Nhẹ Nhàng', author: 'Lofi Girl', duration: 'LIVE' },
+      { videoId: 'lTRiuFIWV54', title: '1 A.M Study Session - Beat Chill', author: 'Lofi Girl', duration: '1:01:14' },
+      { videoId: '4xDzrJKXOOY', title: 'Synthwave Radio - Nhạc Sôi Động', author: 'Lofi Girl', duration: 'LIVE' },
+      { videoId: '7NOSDKb0HlU', title: 'Chillhop Radio - Jazzy & Lofi Beats', author: 'Chillhop Music', duration: 'LIVE' }
+    ];
+
+    let lastSearchResults = [];
+    let activeSearchAbort = null;
+
+    function renderSearchResults(results, queryText) {
+      lastSearchResults = results;
+      const listEl = document.getElementById('yt-search-results');
+      if (!results || results.length === 0) {
+        const ytWebUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}`;
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:12px; font-size:0.76rem; color:#cbd5e1; background:rgba(15,23,42,0.65); border-radius:9px;">
+            Không tải được kết quả tự động cho từ khóa này.<br/>
+            <a href="${ytWebUrl}" target="_blank" rel="noopener" style="display:inline-block; margin-top:6px; color:#f472b6; font-weight:700; text-decoration:underline;">
+              🔗 Mở YouTube tìm "${escapeHtml(queryText)}" rồi dán link vào ô bên dưới
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = results.map((item, idx) => `
+        <div class="search-result-item">
+          <div class="sr-thumb-wrap">
+            <img src="https://i.ytimg.com/vi/${escapeHtml(item.videoId)}/mqdefault.jpg" alt="" loading="lazy" />
+            ${item.duration ? `<span class="sr-dur">${escapeHtml(item.duration)}</span>` : ''}
+          </div>
+          <div class="sr-meta">
+            <div class="sr-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+            <div class="sr-author">📺 ${escapeHtml(item.author || 'YouTube')}</div>
+          </div>
+          <div class="sr-actions">
+            <button class="sr-btn add" data-sr-idx="${idx}" data-sr-act="queue">➕ Hàng chờ</button>
+            <button class="sr-btn play" data-sr-idx="${idx}" data-sr-act="play">▶ Phát ngay</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function fetchFromInvidiousInstance(baseUrl, query, signal) {
+      const url = `${baseUrl}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) throw new Error('Empty');
+      return data
+        .filter(v => v && v.videoId && /^[a-zA-Z0-9_-]{11}$/.test(v.videoId))
+        .slice(0, 12)
+        .map(v => ({
+          videoId: v.videoId,
+          title: v.title || `Video (${v.videoId})`,
+          author: v.author || 'YouTube',
+          duration: v.liveNow ? 'LIVE' : formatDurationSec(v.lengthSeconds)
+        }));
+    }
+
+    async function fetchFromPipedInstance(baseUrl, query, signal) {
+      const url = `${baseUrl}/search?q=${encodeURIComponent(query)}&filter=videos`;
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const items = data && Array.isArray(data.items) ? data.items : [];
+      const mapped = items
+        .map(it => {
+          const m = String(it.url || '').match(/v=([a-zA-Z0-9_-]{11})/);
+          const vid = m ? m[1] : null;
+          if (!vid) return null;
+          return {
+            videoId: vid,
+            title: it.title || `Video (${vid})`,
+            author: it.uploaderName || 'YouTube',
+            duration: it.duration > 0 ? formatDurationSec(it.duration) : ''
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 12);
+      if (mapped.length === 0) throw new Error('Empty');
+      return mapped;
+    }
+
+    async function performKaraokeSearch(rawQuery) {
+      const clean = String(rawQuery || '').trim();
+      const statusEl = document.getElementById('yt-search-status');
+      const listEl = document.getElementById('yt-search-results');
+
+      if (!clean) {
+        statusEl.style.display = 'none';
+        listEl.innerHTML = '';
+        return;
+      }
+
+      const directVid = extractYouTubeId(clean);
+      if (directVid) {
+        document.getElementById('yt-url-input').value = clean;
+        handleYouTubeUrlInput();
+        return;
+      }
+
+      const autoKaraoke = document.getElementById('chk-append-karaoke').checked;
+      const hasKaraokeWord = /karaoke|beat|instrumental|nhac song/i.test(stripVietnameseTones(clean));
+      const finalQuery = (autoKaraoke && !hasKaraokeWord) ? `${clean} karaoke` : clean;
+
+      if (activeSearchAbort) activeSearchAbort.abort();
+      activeSearchAbort = new AbortController();
+      const signal = activeSearchAbort.signal;
+
+      statusEl.style.display = 'block';
+      statusEl.style.color = '#38bdf8';
+      statusEl.textContent = `⏳ Đang tìm "${finalQuery}" trên YouTube...`;
+
+      const normQ = stripVietnameseTones(clean);
+      const localMatches = BUILTIN_KARAOKE_SUGGESTIONS.filter(item =>
+        stripVietnameseTones(item.title + ' ' + item.author).includes(normQ)
+      );
+      if (localMatches.length > 0) {
+        renderSearchResults(localMatches, finalQuery);
+      }
+
+      const timeoutId = setTimeout(() => {
+        if (activeSearchAbort) activeSearchAbort.abort();
+      }, 6500);
+
+      try {
+        const searchTasks = [
+          fetchFromInvidiousInstance('https://inv.nadeko.net', finalQuery, signal),
+          fetchFromInvidiousInstance('https://invidious.nerdvpn.de', finalQuery, signal),
+          fetchFromInvidiousInstance('https://yt.artemislena.eu', finalQuery, signal),
+          fetchFromPipedInstance('https://pipedapi.kavin.rocks', finalQuery, signal),
+          fetchFromPipedInstance('https://pipedapi.adminforge.de', finalQuery, signal)
+        ];
+
+        const liveResults = await Promise.any(searchTasks);
+        clearTimeout(timeoutId);
+
+        const seen = new Set();
+        const merged = [];
+        [...liveResults, ...localMatches].forEach(it => {
+          if (!seen.has(it.videoId)) {
+            seen.add(it.videoId);
+            merged.push(it);
+          }
+        });
+
+        statusEl.style.color = '#4ade80';
+        statusEl.textContent = `✓ Tìm thấy ${merged.length} bài cho "${finalQuery}":`;
+        renderSearchResults(merged, finalQuery);
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err && err.name === 'AbortError' && lastSearchResults.length > 0) return;
+
+        if (localMatches.length > 0) {
+          statusEl.style.color = '#facc15';
+          statusEl.textContent = `⚡ Hiển thị ${localMatches.length} bài gợi ý khớp với "${clean}":`;
+          renderSearchResults(localMatches, finalQuery);
+        } else {
+          statusEl.style.color = '#facc15';
+          statusEl.textContent = `⚠️ Máy chủ tìm kiếm đang bận, bạn có thể bấm link bên dưới hoặc dán link YouTube:`;
+          renderSearchResults([], finalQuery);
+        }
+      }
+    }
+
+    document.getElementById('btn-yt-search').addEventListener('click', () => {
+      performKaraokeSearch(document.getElementById('yt-search-input').value);
+    });
+
+    document.getElementById('yt-search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        performKaraokeSearch(e.target.value);
+      }
+    });
+
+    document.getElementById('yt-search-results').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-sr-idx]');
+      if (!btn || !roomState) return;
+      const idx = parseInt(btn.dataset.srIdx, 10);
+      const act = btn.dataset.srAct;
+      const item = lastSearchResults[idx];
+      if (!item) return;
+
+      if (act === 'queue') {
+        addSongToQueue({ videoId: item.videoId, title: item.title });
+      } else if (act === 'play') {
+        playSongImmediately({ videoId: item.videoId, title: item.title }, null);
+        closeSongControlPanel();
+      }
+    });
+
+    /* =========================================================================
+       14. QUẢN LÝ DANH SÁCH HÀNG CHỜ BÀI HÁT (SONG QUEUE) ĐỒNG BỘ ONLINE
+       ========================================================================= */
+    function addSongToQueue(songObj) {
+      if (!roomState || !songObj || !songObj.videoId) return;
+      roomState.queue = Array.isArray(roomState.queue) ? roomState.queue : [];
+
+      const newItem = {
+        id: 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        videoId: songObj.videoId,
+        title: songObj.title || `Karaoke YouTube (${songObj.videoId})`,
+        addedBy: getMyName(),
+        addedById: myId,
+        addedAt: Date.now()
+      };
+
+      roomState.queue.push(newItem);
+      saveAndBroadcast(roomState, { type: 'QUEUE_ADD', item: newItem });
+      showToast(`➕ Đã thêm "${newItem.title}" vào hàng chờ (#${roomState.queue.length})`);
+    }
+
+    function playSongImmediately(songObj, queueItemId = null) {
+      if (!roomState || !songObj || !songObj.videoId) return;
+      roomState.queue = Array.isArray(roomState.queue) ? roomState.queue : [];
+      if (queueItemId) {
+        roomState.queue = roomState.queue.filter(q => q.id !== queueItemId);
+      }
+      roomState.tv = {
+        videoId: songObj.videoId,
+        localVideoUrl: null,
+        title: songObj.title || `Karaoke YouTube (${songObj.videoId})`,
+        addedBy: songObj.addedBy || getMyName(),
+        isPlaying: true,
+        seekAt: 0,
+        seekNonce: Date.now()
+      };
+      saveAndBroadcast(roomState, { type: 'QUEUE_PLAY_NOW', itemId: queueItemId, tv: roomState.tv });
+      tryUnmuteTvAndPlay();
+      showToast(`▶ Đang phát: ${roomState.tv.title}`);
+    }
+
+    function playNextSongInQueue() {
+      if (!roomState) return;
+      roomState.queue = Array.isArray(roomState.queue) ? roomState.queue : [];
+      if (roomState.queue.length === 0) {
+        showToast('📭 Hàng chờ hiện đang trống, hãy tìm thêm bài hát mới!');
+        return;
+      }
+      const nextItem = roomState.queue.shift();
+      roomState.tv = {
+        videoId: nextItem.videoId,
+        localVideoUrl: null,
+        title: nextItem.title,
+        addedBy: nextItem.addedBy || 'Thành viên',
+        isPlaying: true,
+        seekAt: 0,
+        seekNonce: Date.now()
+      };
+      saveAndBroadcast(roomState, { type: 'QUEUE_NEXT', poppedId: nextItem.id, tv: roomState.tv });
+      tryUnmuteTvAndPlay();
+      showToast(`⏭ Chuyển bài tiếp: ${nextItem.title}`);
+    }
+
+    function prioritizeQueueItem(itemId) {
+      if (!roomState || !Array.isArray(roomState.queue)) return;
+      const idx = roomState.queue.findIndex(q => q.id === itemId);
+      if (idx <= 0) return;
+      const [picked] = roomState.queue.splice(idx, 1);
+      roomState.queue.unshift(picked);
+      saveAndBroadcast(roomState, { type: 'QUEUE_PRIORITIZE', itemId });
+      showToast(`⬆ Đã ưu tiên "${picked.title}" lên đầu hàng chờ`);
+    }
+
+    function removeQueueItem(itemId) {
+      if (!roomState || !Array.isArray(roomState.queue)) return;
+      roomState.queue = roomState.queue.filter(q => q.id !== itemId);
+      saveAndBroadcast(roomState, { type: 'QUEUE_REMOVE', itemId });
+    }
+
+    function renderQueueUI(state) {
+      const queue = Array.isArray(state.queue) ? state.queue : [];
+      const count = queue.length;
+
+      document.getElementById('btn-open-queue-hud').textContent = `📋 Hàng chờ (${count})`;
+      document.getElementById('subtab-queue-count').textContent = String(count);
+
+      const tv = state.tv || {};
+      document.getElementById('queue-now-title').textContent = tv.title || 'Nhạc Chờ Phòng Hát';
+      document.getElementById('queue-now-by').textContent = `Người chọn: ${tv.addedBy || 'Hệ thống'}`;
+
+      const skipBtn = document.getElementById('btn-queue-skip-next');
+      skipBtn.disabled = count === 0;
+
+      const listEl = document.getElementById('queue-items-container');
+      if (count === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:22px 12px; color:#94a3b8; font-size:0.82rem; background:rgba(255,255,255,0.03); border-radius:12px; border:1px dashed rgba(255,255,255,0.14);">
+            Chưa có bài hát nào trong hàng chờ.<br/>
+            Chuyển sang tab <strong>🔍 Tìm & Thêm Bài</strong> để tìm bài hát Karaoke cho cả phòng!
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = queue.map((item, idx) => `
+        <div class="queue-item">
+          <div class="queue-rank">#${idx + 1}</div>
+          <img class="queue-thumb" src="https://i.ytimg.com/vi/${escapeHtml(item.videoId)}/default.jpg" alt="" />
+          <div class="queue-meta">
+            <div class="queue-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+            <div class="queue-by">👤 ${escapeHtml(item.addedBy || 'Thành viên')}</div>
+          </div>
+          <div class="queue-actions">
+            ${idx > 0 ? `<button class="q-icon-btn prio" data-q-action="prio" data-q-id="${escapeHtml(item.id)}" title="Ưu tiên hát trước">⬆</button>` : ''}
+            <button class="q-icon-btn" data-q-action="play" data-q-id="${escapeHtml(item.id)}" title="Phát ngay bài này">▶</button>
+            <button class="q-icon-btn del" data-q-action="del" data-q-id="${escapeHtml(item.id)}" title="Xóa khỏi hàng chờ">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('queue-items-container').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-q-action]');
+      if (!btn || !roomState) return;
+      const action = btn.dataset.qAction;
+      const id = btn.dataset.qId;
+      const item = (roomState.queue || []).find(q => q.id === id);
+
+      if (action === 'prio') prioritizeQueueItem(id);
+      else if (action === 'del') removeQueueItem(id);
+      else if (action === 'play' && item) playSongImmediately(item, id);
+    });
+
+    document.getElementById('btn-queue-skip-next').addEventListener('click', playNextSongInQueue);
+    document.getElementById('btn-tv-next-song').addEventListener('click', playNextSongInQueue);
+
+    /* =========================================================================
+       15. TẠO PHÒNG & VÀO PHÒNG ONLINE QUA MÃ 4 SỐ
+       ========================================================================= */
+    async function createRoom(roomType) {
+      userGestureUnlocked = true;
+      if (activeCode) unsubscribeRoomTopics(activeCode);
+      cleanupAllWebRTC();
+      document.getElementById('chat-messages').innerHTML = '';
+
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      const cfg = ROOM_CONFIGS[roomType];
+      activeCode = code;
+      isRoomHost = true;
+
+      const state = {
+        code,
+        rev: 1,
+        roomType,
+        maxPlayers: cfg.maxPlayers,
+        players: {
+          [myId]: {
+            id: myId,
+            name: getMyName(),
+            seatIndex: 0,
+            hasMic: false,
+            micClaimedAt: 0,
+            shirtColor: SHIRT_COLORS[0],
+            hairColor: HAIR_COLORS[0],
+            skinTone: SKIN_TONES[0],
+            animMode: null,
+            animUntil: 0
+          }
+        },
+        tv: {
+          videoId: 'jfKfPfyJRdk',
+          localVideoUrl: null,
+          title: 'Nhạc Chờ Phòng Hát (Bấm Tìm Bài)',
+          addedBy: 'Hệ thống',
+          isPlaying: true,
+          seekAt: 0,
+          seekNonce: 1
+        },
+        queue: []
+      };
+
+      roomState = state;
+      recordTvTimeAnchor(state.tv, false);
+      document.getElementById('lobby-overlay').classList.add('hidden');
+      buildDioramaRoom(roomType, true);
+      applyRoomState(state);
+      appendSystemChatMessage(`🎉 Đã tạo phòng ${code}. Bấm "🎤 Cầm mic hát" để lên giọng (tối đa 2 mic).`);
+
+      await waitForMqttReady(4000);
+      subscribeRoomTopics(code);
+      saveAndBroadcast(state);
+    }
+
+    async function fetchOnlineRoomState(code) {
+      const ready = await waitForMqttReady(5000);
+      if (!ready || !mqttClient || !mqttConnected) {
+        const localSaved = localStorage.getItem(`mb_td_room_${code}`);
+        return localSaved ? JSON.parse(localSaved) : null;
+      }
+
+      return new Promise((resolve) => {
+        let settled = false;
+        let pingInterval = null;
+
+        const finish = (result) => {
+          if (settled) return;
+          settled = true;
+          clearInterval(pingInterval);
+          clearTimeout(timeoutTimer);
+          pendingJoinResolve = null;
+          resolve(result);
+        };
+
+        const timeoutTimer = setTimeout(() => {
+          const localSaved = localStorage.getItem(`mb_td_room_${code}`);
+          finish(localSaved ? JSON.parse(localSaved) : null);
+        }, 5500);
+
+        pendingJoinResolve = {
+          code,
+          resolve: (remoteState) => finish(remoteState)
+        };
+
+        mqttClient.subscribe(`${TOPIC_PREFIX}/${code}/state`, { qos: 1 });
+        mqttClient.subscribe(`${TOPIC_PREFIX}/${code}/events`, { qos: 1 });
+
+        const sendPing = () => {
+          publishRoomEvent(code, { type: 'REQUEST_STATE', requesterId: myId });
+        };
+        sendPing();
+        pingInterval = setInterval(sendPing, 850);
+      });
+    }
+
+    async function joinRoom(codeRaw) {
+      userGestureUnlocked = true;
+      const code = codeRaw.trim();
+      const statusMsg = document.getElementById('join-status-msg');
+      const joinBtn = document.getElementById('btn-join-room');
+
+      if (!/^\d{4}$/.test(code)) {
+        statusMsg.style.color = '#f87171';
+        statusMsg.textContent = 'Vui lòng nhập mã phòng gồm 4 chữ số!';
+        return;
+      }
+
+      joinBtn.disabled = true;
+      statusMsg.style.color = '#38bdf8';
+      statusMsg.textContent = `⏳ Đang kết nối tới phòng Online mã ${code}...`;
+
+      const state = await fetchOnlineRoomState(code);
+      joinBtn.disabled = false;
+
+      if (!state) {
+        statusMsg.style.color = '#f87171';
+        statusMsg.textContent = `Không tìm thấy phòng mã ${code}. Hãy đảm bảo thiết bị kia đã tạo phòng và đang mở kết nối Internet!`;
+        return;
+      }
+
+      statusMsg.textContent = '';
+      if (activeCode && activeCode !== code) unsubscribeRoomTopics(activeCode);
+      cleanupAllWebRTC();
+      document.getElementById('chat-messages').innerHTML = '';
+
+      activeCode = code;
+      isRoomHost = false;
+
+      state.queue = Array.isArray(state.queue) ? state.queue : [];
+      const players = state.players || {};
+      const list = Object.values(players);
+
+      if (!players[myId] && list.length >= state.maxPlayers) {
+        alert(`Phòng ${code} đã đủ tối đa ${state.maxPlayers} người!`);
+        return;
+      }
+
+      const takenSeats = new Set(list.map(p => p.seatIndex));
+      let freeSeat = 0;
+      while (takenSeats.has(freeSeat)) freeSeat++;
+
+      const idx = list.length;
+
+      const myPlayer = {
+        id: myId,
+        name: getMyName(),
+        seatIndex: freeSeat,
+        hasMic: false,
+        micClaimedAt: 0,
+        shirtColor: SHIRT_COLORS[idx % SHIRT_COLORS.length],
+        hairColor: HAIR_COLORS[idx % HAIR_COLORS.length],
+        skinTone: SKIN_TONES[idx % SKIN_TONES.length],
+        animMode: null,
+        animUntil: 0
+      };
+
+      players[myId] = myPlayer;
+      state.players = players;
+      roomState = state;
+
+      if (state.tv) {
+        recordTvTimeAnchor(state.tv, true);
+      }
+
+      document.getElementById('lobby-overlay').classList.add('hidden');
+      subscribeRoomTopics(code);
+      buildDioramaRoom(state.roomType, true);
+      saveAndBroadcast(state, { type: 'UPSERT_PLAYER', player: myPlayer });
+
+      // Yêu cầu chủ phòng gửi ngay mốc giây hiện tại (getCurrentTime) để đồng bộ chính xác tuyệt đối
+      publishRoomEvent(code, { type: 'REQUEST_STATE', requesterId: myId });
+
+      appendSystemChatMessage(`🎧 Bạn đã vào phòng ${code} với vai trò khán giả. Bấm "🎤 Cầm mic hát" nếu muốn hát!`);
+      showToast(`✅ Đã kết nối vào phòng ${code}!`);
+    }
+
+    function applyRoomState(state) {
+      if (!state) return;
+      buildDioramaRoom(state.roomType, false);
+
+      const cfg = ROOM_CONFIGS[state.roomType];
+      const playersObj = state.players || {};
+      const players = Object.values(playersObj);
+
+      const micHolders = players.filter(p => p.hasMic).sort((a, b) => (a.micClaimedAt || 0) - (b.micClaimedAt || 0));
+      if (micHolders.length > MAX_MICS_IN_ROOM) {
+        const overflow = micHolders.slice(MAX_MICS_IN_ROOM);
+        overflow.forEach(p => {
+          p.hasMic = false;
+          if (p.id === myId && isHoldingMic) {
+            releaseMyMic(false);
+            showToast(`⚠️ Phòng chỉ cho phép tối đa ${MAX_MICS_IN_ROOM} người cầm mic!`);
+          }
+        });
+      }
+
+      const currentMicCount = players.filter(p => p.hasMic).length;
+
+      document.getElementById('hud-room-code').textContent = `MÃ: ${state.code}`;
+      document.getElementById('hud-room-info').textContent = `${cfg.name} • ${players.length}/${cfg.maxPlayers}`;
+      document.getElementById('hud-mic-count').textContent = `🎤 Mic: ${currentMicCount}/${MAX_MICS_IN_ROOM}`;
+
+      const me = playersObj[myId];
+      if (me && me.hasMic !== isHoldingMic) {
+        me.hasMic = isHoldingMic;
+      }
+
+      const btnMic = document.getElementById('btn-mic');
+      if (isHoldingMic) {
+        btnMic.textContent = '⏹ Trả mic (Đang hát)';
+        btnMic.classList.add('active-mic');
+      } else {
+        btnMic.textContent = currentMicCount >= MAX_MICS_IN_ROOM ? '🎧 Đủ 2 mic (Đang nghe)' : '🎤 Cầm mic hát';
+        btnMic.classList.remove('active-mic');
+      }
+
+      syncWebRTCPeersWithPlayers(playersObj);
+
+      while (charsGroup.children.length) charsGroup.remove(charsGroup.children[0]);
+      charHitboxes = [];
+      animatedChars = [];
+
+      const occupiedSeats = new Set();
+      players.forEach(p => {
+        const slot = seatSlots[p.seatIndex] || seatSlots[0];
+        if (!slot) return;
+        occupiedSeats.add(slot.index);
+        charsGroup.add(createSeatedHuman(p, slot, p.id === myId));
+      });
+
+      seatsGroup.children.forEach(obj => {
+        if (obj.isMesh && obj.geometry.type === 'RingGeometry') {
+          const isTaken = occupiedSeats.has(obj.userData.seatIndex);
+          obj.material.opacity = isTaken ? 0.15 : 0.75;
+        }
+      });
+
+      syncTvPlayerWithState(state.tv);
+      renderQueueUI(state);
+    }
+
+    /* =========================================================================
+       16. BẢNG ĐIỀU KHIỂN CHỌN BÀI, DÁN LINK & CHUYỂN TAB HÀNG CHỜ
+       ========================================================================= */
+    let previewedSong = null;
+
+    function extractYouTubeId(url) {
+      const s = url.trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+      const m = s.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/|live\/))([a-zA-Z0-9_-]{11})/);
+      return m && m[1] ? m[1] : null;
+    }
+
+    function switchModalSubtab(tabName) {
+      const isAdd = tabName === 'add';
+      document.getElementById('subtab-add').classList.toggle('active', isAdd);
+      document.getElementById('subtab-queue').classList.toggle('active', !isAdd);
+      document.getElementById('panel-song-add').style.display = isAdd ? 'block' : 'none';
+      document.getElementById('panel-song-queue').style.display = isAdd ? 'none' : 'block';
+      if (roomState) renderQueueUI(roomState);
+    }
+
+    function openSongControlPanel(defaultTab = 'add') {
+      switchModalSubtab(defaultTab);
+      document.getElementById('tablet-modal-backdrop').classList.add('open');
+      if (defaultTab === 'add') {
+        setTimeout(() => document.getElementById('yt-search-input').focus(), 80);
+      }
+    }
+
+    function closeSongControlPanel() {
+      document.getElementById('tablet-modal-backdrop').classList.remove('open');
+    }
+
+    document.getElementById('subtab-add').addEventListener('click', () => switchModalSubtab('add'));
+    document.getElementById('subtab-queue').addEventListener('click', () => switchModalSubtab('queue'));
+
+    function setPreviewButtonsEnabled(enabled) {
+      document.getElementById('btn-add-to-queue').disabled = !enabled;
+      document.getElementById('btn-play-now-direct').disabled = !enabled;
+    }
+
+    async function handleYouTubeUrlInput() {
+      const raw = document.getElementById('yt-url-input').value.trim();
+      const card = document.getElementById('yt-preview-card');
+      const errEl = document.getElementById('yt-url-error');
+
+      if (!raw) {
+        card.classList.remove('visible');
+        errEl.style.display = 'none';
+        setPreviewButtonsEnabled(false);
+        previewedSong = null;
+        return;
+      }
+
+      const vid = extractYouTubeId(raw);
+      if (!vid) {
+        card.classList.remove('visible');
+        errEl.style.display = 'block';
+        setPreviewButtonsEnabled(false);
+        previewedSong = null;
+        return;
+      }
+
+      errEl.style.display = 'none';
+      document.getElementById('yt-preview-thumb').src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      document.getElementById('yt-preview-title').textContent = 'Đang lấy tiêu đề bài hát...';
+      document.getElementById('yt-preview-author').textContent = `YouTube ID: ${vid}`;
+      card.classList.add('visible');
+
+      previewedSong = { videoId: vid, localVideoUrl: null, title: `Karaoke YouTube (${vid})` };
+      setPreviewButtonsEnabled(true);
+
+      try {
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vid}`);
+        const data = await res.json();
+        if (data && data.title) {
+          previewedSong.title = data.title;
+          document.getElementById('yt-preview-title').textContent = data.title;
+          document.getElementById('yt-preview-author').textContent = `Kênh: ${data.author_name || 'YouTube'}`;
+        }
+      } catch {}
+    }
+
+    document.getElementById('yt-url-input').addEventListener('input', handleYouTubeUrlInput);
+
+    document.querySelectorAll('.chip-song').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.search) {
+          document.getElementById('yt-search-input').value = btn.dataset.search;
+          performKaraokeSearch(btn.dataset.search);
+        } else if (btn.dataset.vid) {
+          document.getElementById('yt-url-input').value = `https://www.youtube.com/watch?v=${btn.dataset.vid}`;
+          handleYouTubeUrlInput();
+        }
+      });
+    });
+
+    document.getElementById('local-video-input').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file || !roomState) return;
+      const objUrl = URL.createObjectURL(file);
+      roomState.tv = {
+        videoId: null,
+        localVideoUrl: objUrl,
+        title: file.name,
+        addedBy: getMyName(),
+        isPlaying: true,
+        seekAt: 0,
+        seekNonce: Date.now()
+      };
+      applyRoomState(roomState);
+      closeSongControlPanel();
+    });
+
+    document.getElementById('btn-paste-clip').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('yt-url-input').value = text;
+        handleYouTubeUrlInput();
+      } catch {
+        alert('Hãy nhấn giữ (Mobile) hoặc Ctrl+V (Laptop) vào ô nhập để dán link YouTube.');
+      }
+    });
+
+    document.getElementById('btn-add-to-queue').addEventListener('click', () => {
+      if (!previewedSong || !roomState) return;
+      addSongToQueue(previewedSong);
+      document.getElementById('yt-url-input').value = '';
+      document.getElementById('yt-preview-card').classList.remove('visible');
+      setPreviewButtonsEnabled(false);
+      previewedSong = null;
+      switchModalSubtab('queue');
+    });
+
+    document.getElementById('btn-play-now-direct').addEventListener('click', () => {
+      if (!previewedSong || !roomState) return;
+      playSongImmediately(previewedSong, null);
+      closeSongControlPanel();
+    });
+
+    function openTvRemote() {
+      updateTvRemoteButtonLabel();
+      document.getElementById('tv-remote-popover').classList.add('open');
+    }
+
+    function closeTvRemote() {
+      document.getElementById('tv-remote-popover').classList.remove('open');
+    }
+
+    document.getElementById('btn-tv-playpause').addEventListener('click', () => {
+      if (!roomState || !roomState.tv) return;
+      const curSec = getCurrentLiveTvSecond();
+      roomState.tv.seekAt = curSec;
+      roomState.tv.isPlaying = !roomState.tv.isPlaying;
+      roomState.tv.seekNonce = Date.now();
+      saveAndBroadcast(roomState, { type: 'SET_TV', tv: roomState.tv });
+    });
+
+    document.getElementById('btn-tv-rewind').addEventListener('click', () => {
+      if (!roomState || !roomState.tv) return;
+      if (roomState.tv.localVideoUrl && tvLocalVideoEl) {
+        tvLocalVideoEl.currentTime = Math.max(0, tvLocalVideoEl.currentTime - 5);
+        return;
+      }
+      const cur = getCurrentLiveTvSecond();
+      roomState.tv.seekAt = Math.max(0, Number((cur - 5).toFixed(2)));
+      roomState.tv.seekNonce = Date.now();
+      saveAndBroadcast(roomState, { type: 'SET_TV', tv: roomState.tv });
+    });
+
+    document.getElementById('btn-tv-forward').addEventListener('click', () => {
+      if (!roomState || !roomState.tv) return;
+      if (roomState.tv.localVideoUrl && tvLocalVideoEl) {
+        tvLocalVideoEl.currentTime += 5;
+        return;
+      }
+      const cur = getCurrentLiveTvSecond();
+      roomState.tv.seekAt = Number((cur + 5).toFixed(2));
+      roomState.tv.seekNonce = Date.now();
+      saveAndBroadcast(roomState, { type: 'SET_TV', tv: roomState.tv });
+    });
+
+    document.getElementById('btn-tv-sync-now').addEventListener('click', () => {
+      if (!activeCode || !roomState) return;
+      if (isRoomHost) {
+        const curSec = getCurrentLiveTvSecond();
+        roomState.tv.seekAt = curSec;
+        roomState.tv.seekNonce = Date.now();
+        saveAndBroadcast(roomState, { type: 'SET_TV', tv: roomState.tv });
+        showToast(`🔄 Đã phát mốc ${formatPlaybackClock(curSec)} cho cả phòng!`);
+      } else {
+        publishRoomEvent(activeCode, { type: 'REQUEST_STATE', requesterId: myId });
+        showToast('⏳ Đang đồng bộ mốc giây với chủ phòng...');
+      }
+    });
+
+    document.getElementById('tv-volume-slider').addEventListener('input', (e) => {
+      const vol = parseInt(e.target.value, 10);
+      if (tvLocalVideoEl) tvLocalVideoEl.volume = vol / 100;
+      if (ytPlayerInstance && ytPlayerReady) {
+        ytPlayerInstance.unMute();
+        ytPlayerInstance.setVolume(vol);
+      } else if (tvIframeEl && tvIframeEl.contentWindow) {
+        tvIframeEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        tvIframeEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [vol] }), '*');
+      }
+      document.getElementById('btn-unlock-tv-sound').style.display = 'none';
+    });
+
+    document.getElementById('btn-tv-unmute').addEventListener('click', tryUnmuteTvAndPlay);
+
+    function applyTvZoomCamera() {
+      if (!tvCssParams) return;
+      const p = tvCssParams;
+      const tvPos = new THREE.Vector3(p.x, p.y, p.z).multiplyScalar(WORLD_SCALE);
+      const nrm = new THREE.Vector3(Math.sin(p.rotY), 0, Math.cos(p.rotY));
+      const halfTan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const W = p.widthM * WORLD_SCALE;
+      const H = p.heightM * WORLD_SCALE;
+      const d = Math.max(W / (0.96 * 2 * halfTan * camera.aspect), H / (0.92 * 2 * halfTan));
+      camera.position.copy(tvPos).addScaledVector(nrm, d);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(tvPos);
+      camera.updateMatrixWorld();
+    }
+
+    function enterTvZoom() {
+      if (tvZoomed || !tvCssParams || !roomState) return;
+      tvZoomSaved = { pos: camera.position.clone(), target: controls.target.clone() };
+      tvZoomed = true;
+      controls.enabled = false;
+      document.getElementById('webgl-container').style.display = 'none';
+      applyTvZoomCamera();
+      document.getElementById('btn-tv-zoom-exit').classList.remove('hidden');
+      closeTvRemote();
+    }
+
+    function exitTvZoom() {
+      if (!tvZoomed) return;
+      tvZoomed = false;
+      document.getElementById('webgl-container').style.display = '';
+      document.getElementById('btn-tv-zoom-exit').classList.add('hidden');
+      controls.enabled = true;
+      if (tvZoomSaved) {
+        camera.position.copy(tvZoomSaved.pos);
+        controls.target.copy(tvZoomSaved.target);
+      }
+      controls.update();
+    }
+
+    document.getElementById('btn-tv-zoom').addEventListener('click', enterTvZoom);
+    document.getElementById('btn-tv-zoom-exit').addEventListener('click', exitTvZoom);
+
+    /* =========================================================================
+       17. RAYCASTER CHẠM / XUYÊN CHUỘT VÀO MÀN HÌNH TIVI 3D & ĐỔI GHẾ
+       ========================================================================= */
+    const raycaster = new THREE.Raycaster();
+    const pointerNdc = new THREE.Vector2();
+    let downX = 0, downY = 0, downTime = 0;
+
+    const webglContainerEl = document.getElementById('webgl-container');
+    const canvasEl = webglRenderer.domElement;
+
+    function updateTvPassthroughAt(clientX, clientY) {
+      if (!roomState || !tvHitbox || !document.getElementById('lobby-overlay').classList.contains('hidden')) {
+        webglContainerEl.classList.remove('tv-passthrough');
+        return false;
+      }
+      const rect = canvasEl.getBoundingClientRect();
+      pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointerNdc, camera);
+      const hitTv = raycaster.intersectObject(tvHitbox, false).length > 0;
+      webglContainerEl.classList.toggle('tv-passthrough', hitTv);
+      return hitTv;
+    }
+
+    window.addEventListener('pointermove', (e) => updateTvPassthroughAt(e.clientX, e.clientY));
+
+    canvasEl.addEventListener('pointerdown', (e) => {
+      if (updateTvPassthroughAt(e.clientX, e.clientY)) return;
+      downX = e.clientX; downY = e.clientY; downTime = performance.now();
+    });
+
+    canvasEl.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - downX, e.clientY - downY);
+      const elapsed = performance.now() - downTime;
+      if (dist > 10 || elapsed > 420 || !roomState) return;
+
+      const rect = canvasEl.getBoundingClientRect();
+      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointerNdc, camera);
+
+      if (tabletHitbox && raycaster.intersectObject(tabletHitbox, false).length > 0) {
+        openSongControlPanel('add');
+        return;
+      }
+
+      const charHits = raycaster.intersectObjects(charHitboxes, false);
+      if (charHits.length > 0) {
+        const targetId = charHits[0].object.userData.playerId;
+        if (targetId && targetId !== myId && roomState.players[targetId]) {
+          pendingSwapTargetId = targetId;
+          document.getElementById('seat-swap-text').textContent = `🔄 Xin đổi vị trí ngồi với ${roomState.players[targetId].name}?`;
+          document.getElementById('seat-swap-modal').classList.add('open');
+        }
+        return;
+      }
+
+      const seatHits = raycaster.intersectObjects(seatHitboxes, false);
+      if (seatHits.length > 0) {
+        const targetSeatIdx = seatHits[0].object.userData.seatIndex;
+        const players = Object.values(roomState.players || {});
+        const occupant = players.find(p => p.seatIndex === targetSeatIdx);
+
+        if (!occupant && roomState.players[myId]) {
+          roomState.players[myId].seatIndex = targetSeatIdx;
+          saveAndBroadcast(roomState, { type: 'UPSERT_PLAYER', player: roomState.players[myId] });
+        } else if (occupant && occupant.id !== myId) {
+          pendingSwapTargetId = occupant.id;
+          document.getElementById('seat-swap-text').textContent = `🔄 Xin đổi vị trí ngồi với ${occupant.name}?`;
+          document.getElementById('seat-swap-modal').classList.add('open');
+        }
+      }
+    });
+
+    document.getElementById('btn-swap-yes').addEventListener('click', () => {
+      if (!roomState || !pendingSwapTargetId) return;
+      const me = roomState.players[myId];
+      const other = roomState.players[pendingSwapTargetId];
+      if (me && other) {
+        const tempSeat = me.seatIndex;
+        me.seatIndex = other.seatIndex;
+        other.seatIndex = tempSeat;
+        saveAndBroadcast(roomState, { type: 'SWAP_SEAT', p1: myId, p2: pendingSwapTargetId });
+      }
+      pendingSwapTargetId = null;
+      document.getElementById('seat-swap-modal').classList.remove('open');
+    });
+
+    document.getElementById('btn-swap-no').addEventListener('click', () => {
+      pendingSwapTargetId = null;
+      document.getElementById('seat-swap-modal').classList.remove('open');
+    });
+
+    /* =========================================================================
+       18. SỰ KIỆN LOBBY, HUD & BIỂU CẢM CÁ NHÂN
+       ========================================================================= */
+    document.getElementById('tab-create').addEventListener('click', () => {
+      document.getElementById('tab-create').classList.add('active');
+      document.getElementById('tab-join').classList.remove('active');
+      document.getElementById('panel-create').style.display = 'block';
+      document.getElementById('panel-join').style.display = 'none';
+    });
+
+    document.getElementById('tab-join').addEventListener('click', () => {
+      document.getElementById('tab-join').classList.add('active');
+      document.getElementById('tab-create').classList.remove('active');
+      document.getElementById('panel-create').style.display = 'none';
+      document.getElementById('panel-join').style.display = 'flex';
+      setTimeout(() => document.getElementById('join-code-input').focus(), 80);
+    });
+
+    document.getElementById('join-code-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        joinRoom(e.target.value);
+      }
+    });
+
+    document.getElementById('friend-slider').addEventListener('input', (e) => {
+      const n = parseInt(e.target.value, 10);
+      document.getElementById('friend-count-label').textContent = `${n} người`;
+      const rec = n <= 3 ? 'small' : (n <= 6 ? 'medium' : 'rich');
+      ['small', 'medium', 'rich'].forEach(k => {
+        const el = document.getElementById(`card-${k}`);
+        el.classList.toggle('recommended', k === rec);
+        el.querySelector('.badge-rec').style.display = k === rec ? 'inline-block' : 'none';
+      });
+    });
+
+    document.querySelectorAll('.room-option').forEach(el => {
+      el.addEventListener('click', () => createRoom(el.dataset.room));
+    });
+
+    document.getElementById('btn-join-room').addEventListener('click', () => {
+      joinRoom(document.getElementById('join-code-input').value);
+    });
+
+    document.getElementById('btn-leave').addEventListener('click', () => {
+      exitTvZoom();
+      cleanupAllWebRTC();
+      if (isChatOpen) toggleChat();
+      document.getElementById('lobby-overlay').classList.remove('hidden');
+      closeSongControlPanel();
+      closeTvRemote();
+    });
+
+    document.getElementById('hud-room-code').addEventListener('click', () => {
+      if (!activeCode) return;
+      navigator.clipboard?.writeText(activeCode);
+      showToast(`📋 Đã sao chép mã phòng Online: ${activeCode}`);
+    });
+
+    document.getElementById('btn-reset-cam').addEventListener('click', () => {
+      if (tvZoomed) exitTvZoom();
+      if (roomState) resetTopDownCamera(roomState.roomType);
+    });
+
+    document.getElementById('pin-tablet').addEventListener('click', () => openSongControlPanel('add'));
+    document.getElementById('btn-open-tablet-hud').addEventListener('click', () => openSongControlPanel('add'));
+    document.getElementById('btn-open-queue-hud').addEventListener('click', () => openSongControlPanel('queue'));
+    document.getElementById('btn-close-tablet').addEventListener('click', closeSongControlPanel);
+    document.getElementById('btn-cancel-tablet').addEventListener('click', closeSongControlPanel);
+
+    document.getElementById('pin-tv').addEventListener('click', openTvRemote);
+    document.getElementById('btn-open-tv-hud').addEventListener('click', openTvRemote);
+    document.getElementById('btn-close-tv-remote').addEventListener('click', closeTvRemote);
+
+    document.querySelectorAll('.anim-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!roomState || !roomState.players || !roomState.players[myId]) return;
+        const mode = btn.dataset.anim;
+        const until = Date.now() + 5500;
+
+        roomState.players[myId].animMode = mode;
+        roomState.players[myId].animUntil = until;
+
+        document.querySelectorAll('.anim-btn').forEach(b => b.classList.remove('anim-active'));
+        btn.classList.add('anim-active');
+
+        saveAndBroadcast(roomState, {
+          type: 'PLAYER_ANIM',
+          playerId: myId,
+          animMode: mode,
+          animUntil: until
+        });
+
+        setTimeout(() => {
+          const me = roomState && roomState.players && roomState.players[myId];
+          if (me && Date.now() >= (me.animUntil || 0) - 80) {
+            me.animMode = null;
+            me.animUntil = 0;
+            btn.classList.remove('anim-active');
+          }
+        }, 5550);
+      });
+    });
+
+    const pinTabletEl = document.getElementById('pin-tablet');
+    const pinTvEl = document.getElementById('pin-tv');
+    const projVec = new THREE.Vector3();
+
+    function updateFloatingWorldPins() {
+      if (!roomState || tvZoomed || !document.getElementById('lobby-overlay').classList.contains('hidden')) {
+        pinTabletEl.style.display = 'none';
+        pinTvEl.style.display = 'none';
+        return;
+      }
+      pinTabletEl.style.display = 'block';
+      pinTvEl.style.display = 'block';
+
+      projVec.copy(tabletAnchor3D).multiplyScalar(WORLD_SCALE).project(camera);
+      pinTabletEl.style.left = `${(projVec.x * 0.5 + 0.5) * window.innerWidth}px`;
+      pinTabletEl.style.top = `${(-projVec.y * 0.5 + 0.5) * window.innerHeight}px`;
+
+      projVec.copy(tvAnchor3D).multiplyScalar(WORLD_SCALE).project(camera);
+      pinTvEl.style.left = `${(projVec.x * 0.5 + 0.5) * window.innerWidth}px`;
+      pinTvEl.style.top = `${(-projVec.y * 0.5 + 0.5) * window.innerHeight}px`;
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      if (tvZoomed) applyTvZoomCamera();
+      webglRenderer.setSize(window.innerWidth, window.innerHeight);
+      css3dRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.addEventListener('beforeunload', cleanupAllWebRTC);
+
+    /* =========================================================================
+       19. VÒNG LẶP RENDER 60FPS
+       ========================================================================= */
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const now = Date.now();
+
+      discoSpots.forEach(spot => {
+        spot.material.opacity = 0.35 + 0.45 * Math.sin(t * 2.4 + spot.userData.phase);
+      });
+
+      animatedChars.forEach(ch => {
+        const beat = t * 5.2 + ch.phase;
+        const pData = roomState && roomState.players ? roomState.players[ch.playerId] : null;
+        const isPersonalEmoteActive = pData && pData.animMode && now < (pData.animUntil || 0);
+        const mode = isPersonalEmoteActive ? pData.animMode : 'groove';
+
+        ch.upperBody.rotation.set(0, 0, 0);
+        ch.upperBody.position.y = 0.14;
+        ch.headGroup.rotation.set(0, 0, 0);
+        ch.leftArm.rotation.set(0, 0, 0);
+        ch.rightArm.rotation.set(0, 0, 0);
+        ch.legs[0].rotation.x = 0;
+        ch.legs[1].rotation.x = 0;
+
+        if (mode === 'clap' && !ch.hasMic) {
+          const clap = Math.abs(Math.sin(t * 9.5 + ch.phase));
+          ch.leftArm.rotation.x = -0.85;
+          ch.leftArm.rotation.z = 0.25 + clap * 0.32;
+          ch.rightArm.rotation.x = -0.85;
+          ch.rightArm.rotation.z = -0.25 - clap * 0.32;
+          ch.headGroup.rotation.x = Math.sin(t * 9.5 + ch.phase) * 0.08;
+        } else if (mode === 'cheer') {
+          ch.leftArm.rotation.z = -2.35 + Math.sin(beat) * 0.28;
+          ch.leftArm.rotation.x = -0.2;
+          if (!ch.hasMic) {
+            ch.rightArm.rotation.z = 2.35 - Math.sin(beat) * 0.28;
+            ch.rightArm.rotation.x = -0.2;
+          } else {
+            ch.rightArm.rotation.x = -0.45 + Math.sin(beat) * 0.2;
+          }
+          ch.upperBody.rotation.z = Math.sin(beat * 0.5) * 0.11;
+          ch.headGroup.rotation.z = Math.sin(beat) * 0.12;
+        } else if (mode === 'dance') {
+          const bounce = Math.abs(Math.sin(t * 6.5 + ch.phase));
+          ch.upperBody.position.y = 0.14 + bounce * 0.032;
+          ch.upperBody.rotation.z = Math.sin(t * 3.25 + ch.phase) * 0.12;
+          ch.headGroup.rotation.y = Math.sin(t * 3.25 + ch.phase) * 0.16;
+          ch.legs[0].rotation.x = Math.sin(t * 6.5 + ch.phase) * 0.12;
+          ch.legs[1].rotation.x = -Math.sin(t * 6.5 + ch.phase) * 0.12;
+        } else {
+          if (ch.hasMic) {
+            ch.upperBody.rotation.x = 0.06 + Math.sin(t * 3.0 + ch.phase) * 0.04;
+            ch.headGroup.rotation.x = Math.sin(t * 4.5 + ch.phase) * 0.09;
+            ch.rightArm.rotation.z = Math.sin(t * 3.2 + ch.phase) * 0.08;
+            ch.leftArm.rotation.z = -0.15 + Math.sin(t * 3.2 + ch.phase) * 0.1;
+          } else {
+            ch.upperBody.rotation.z = Math.sin(t * 2.2 + ch.phase) * 0.04;
+            ch.headGroup.rotation.x = Math.sin(t * 2.6 + ch.phase) * 0.06;
+          }
+        }
+      });
+
+      if (!tvZoomed) controls.update();
+      updateFloatingWorldPins();
+      if (!tvZoomed) webglRenderer.render(scene, camera);
+      css3dRenderer.render(cssScene, camera);
+    }
+
+    initOnlineBroker();
+    animate();
+  </script>
+</body>
+</html>
