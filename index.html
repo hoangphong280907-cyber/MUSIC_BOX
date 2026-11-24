@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Music Box Karaoke 3D Online - Hát Live & Chat</title>
   <style>
+    * { scrollbar-width: none; -ms-overflow-style: none; }
+    *::-webkit-scrollbar { display: none; width: 0; height: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
     html, body {
       background: radial-gradient(circle at center, #14182b 0%, #07080f 100%);
@@ -1852,7 +1854,7 @@
       const sageMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82 });
       const headrestMat = new THREE.MeshStandardMaterial({ color: 0x7ab2af, map: tex, roughness: 0.8 });
 
-      const mainW = 5.6, mainD = 1.05, chaiseW = 1.45, chaiseL = 2.45, legH = 0.13;
+      const mainW = 5.6, mainD = 1.05, chaiseW = 1.45, chaiseL = 3.25, legH = 0.13;
       addSlimMetalLegs(lSofa, mainW - 0.3, mainD - 0.2, legH);
 
       const mainSeat = new THREE.Mesh(new THREE.BoxGeometry(mainW - 0.36, 0.24, mainD - 0.16), sageMat);
@@ -1885,7 +1887,10 @@
 
       const chaiseX = mainW / 2 - chaiseW / 2 - 0.28;
       const chaiseZ = chaiseL / 2 - mainD / 2;
-      addSlimMetalLegs(lSofa, chaiseW - 0.2, chaiseL - 0.3, legH);
+      const chaiseLegs = new THREE.Group();
+      chaiseLegs.position.set(chaiseX, 0, chaiseZ);
+      addSlimMetalLegs(chaiseLegs, chaiseW - 0.2, chaiseL - 0.3, legH);
+      lSofa.add(chaiseLegs);
       const chaiseSeat = new THREE.Mesh(new THREE.BoxGeometry(chaiseW, 0.24, chaiseL), sageMat);
       chaiseSeat.position.set(chaiseX, legH + 0.12, chaiseZ); chaiseSeat.castShadow = true; chaiseSeat.receiveShadow = true;
       lSofa.add(chaiseSeat);
