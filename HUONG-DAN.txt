@@ -1,0 +1,16 @@
+HƯỚNG DẪN ĐƯA WEB APP LÊN MẠNG
+================================
+Thư mục này là web app hoàn chỉnh (PWA). Chỉ cần đưa NGUYÊN CẢ thư mục lên một nơi có HTTPS:
+
+1) GitHub Pages: tạo repo, tải toàn bộ các tệp này lên, vào Settings > Pages > chọn nhánh main.
+2) Netlify: vào app.netlify.com/drop, kéo thả thư mục này vào.
+3) Vercel hoặc Cloudflare Pages: tạo project tĩnh và tải thư mục lên.
+
+Chạy thử trên máy: mở terminal trong thư mục này rồi gõ  python -m http.server 8000
+sau đó vào http://localhost:8000  (đừng bấm đúp mở tệp index.html, YouTube sẽ không phát).
+
+Cài app:
+- Android/Chrome, máy tính: bấm nút "Cài app lên thiết bị" ở sảnh (hoặc biểu tượng cài đặt trên thanh địa chỉ).
+- iPhone/iPad: Safari > Chia sẻ > Thêm vào MH chính.
+
+Khi sửa index.html: mở sw.js và đổi VERSION ('v1' -> 'v2'...) để các máy nhận bản mới.
