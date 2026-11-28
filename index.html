@@ -2987,7 +2987,7 @@
         dLeg(r, -1, 0.35 + 0.2 * Math.sin(b * 4), 0.8, 0.12); dLeg(r, 1, 0.35 + 0.2 * Math.sin(b * 4 + PH3), 0.8, 0.12);
         r.hips.position.x = Math.sin(b * 6) * 0.03; r.lift = Math.abs(Math.sin(b * 3)) * 0.02;
       } },
-      { id: 'ktv', flag: '🎬', name: 'Quẩy KTV – ICON (video 1)', bpm: 128, pose(r, b, t, bt) {
+      { id: 'ktv', flag: '⑳', name: 'Quẩy lên', bpm: 128, pose(r, b, t, bt) {
         const seq = Math.floor(bt / 2) % 4, prev = (seq + 3) % 4;
         const f = smooth01(((bt / 2) % 1) * 2.5);
         const P = KTV_POSES[seq], Q = KTV_POSES[prev];
@@ -2999,7 +2999,7 @@
         dLeg(r, -1, 0.2 + 0.15 * s2, 0.5 + 0.2 * Math.abs(s2), 0.12); dLeg(r, 1, 0.2 - 0.15 * s2, 0.5 + 0.2 * Math.abs(s2), 0.12);
         r.lift = Math.abs(s2) * 0.03;
       } },
-      { id: 'phongxanh', flag: '🟩', name: 'Phông xanh (video 2)', bpm: 124, pose(r, b) {
+      { id: 'phongxanh', flag: '🟩', name: 'Lắc lư', bpm: 124, pose(r, b) {
         const u = Math.sin(b / 2), p = Math.max(0, u), n = Math.max(0, -u);
         dArm(r, -1, 0.3, 0.9 + 0.8 * u, 0.5); dArm(r, 1, 0.3, 0.9 - 0.8 * u, 0.5);
         r.upperBody.rotation.y = u * 0.5; r.hips.position.x = u * 0.15; r.hips.rotation.z = u * 0.08;
